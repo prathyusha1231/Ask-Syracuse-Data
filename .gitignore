@@ -1,0 +1,15 @@
+# Python artifacts
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Virtual environment
+venv/
+
+# Local documents to exclude
+Research_Task_09.docx
+ResponseSummary.pdf
+"ResponseSummary (1).pdf"
+
+# Secrets / env
+.env
