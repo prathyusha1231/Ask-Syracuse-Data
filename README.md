@@ -1,3 +1,6 @@
+# 🚧 Work in Progress
+This project is actively being developed. Features, documentation, and structure may change as improvements are made.
+
 # Ask Syracuse Data
 
 Governed, deterministic analysis of Syracuse housing and public safety CSV snapshots. Natural language questions are translated into structured intents (with tight guardrails) and executed via DuckDB SQL. No chatbot behavior; no model-generated answers.
@@ -51,6 +54,12 @@ streamlit run ui_streamlit.py
 - "Which zip codes have the most vacant properties?" -> counts by zip (zip_code alias supported)
 - "What types of crimes were most common in 2022?" -> counts by code_defined
 - Rejected by guardrails (expected): cross-dataset questions (e.g., crime vs rental, vacant vs violations) and unsupported group_bys
+
+## Roadmap
+- [ ] Improve SQL intent routing accuracy
+- [ ] Add more example NL → SQL queries
+- [ ] Refactor schema handling
+- [ ] Add evaluation benchmarks
 
 ## Limitations / ethical framing
 - Administrative records are not ground truth; reporting/enforcement vary by area.
