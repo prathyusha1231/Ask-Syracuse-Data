@@ -1,68 +1,96 @@
-# 🚧 Work in Progress
-This project is actively being developed. Features, documentation, and structure may change as improvements are made.
-
 # Ask Syracuse Data
 
-Governed, deterministic analysis of Syracuse housing and public safety CSV snapshots. Natural language questions are translated into structured intents (with tight guardrails) and executed via DuckDB SQL. No chatbot behavior; no model-generated answers.
+A natural language interface for querying Syracuse Open Data. Ask questions in plain English and get data-driven answers with interactive visualizations.
 
-## What it is
-- Static, reproducible pipeline over four Syracuse Open Data CSVs (code violations, rental registry, vacant properties, 2022 Part 1 crime).
-- Deterministic loaders (`data_utils.py`), strict intent validation and aliases (`schema.py`), intent parsing (GPT or heuristic), SQL builder (`sql_builder.py`), and DuckDB execution (in-memory).
-- CLI entry point (`main.py`) and an optional test-only Streamlit UI (`ui_streamlit.py`) that calls the same backend.
+## Features
 
-## What it does today
-- Load/clean CSVs from `data/raw/` with normalized columns and parsed dates.
-- Guardrails: allowed datasets/group-bys/filters, dataset/group_by aliases, and validation of all intents.
-- SQL generation: pure Python builder creates DuckDB `SELECT` queries (no joins across datasets, no mutations).
-- Execution: DuckDB runs generated SQL; results, SQL, metadata, and limitations are returned to CLI/UI.
+- **Natural Language Queries**: Ask questions like "What's the crime rate by neighborhood?" or "Which zip codes have the most violations?"
+- **Interactive Web UI**: Modern FastAPI + Tailwind CSS interface with charts and maps
+- **Cross-Dataset Analysis**: Join violations with rental properties, vacant properties, and more
+- **Auto-Insights**: AI-generated insights explaining what the data means
+- **Data Quality Handling**: Robust null value handling with configurable strategies
 
-## What it does **not** do
-- No predictive or causal modeling; descriptive counts only.
-- No live data ingestion or external APIs beyond optional GPT for intent parsing.
-- No LLM access to data or SQL execution; LLM outputs intent JSON only.
+## Datasets
 
-## Data sources (static snapshots)
-- `data/raw/Code_Violations_V2.csv` — 2017–present code enforcement violations (addresses, violation types, status, neighborhood, lat/long).
-- `data/raw/Syracuse_Rental_Registry.csv` — rental registry inspections/validity (SBL, zip, validity dates, lat/long).
-- `data/raw/Vacant_Properties.csv` — administratively identified vacant properties (registry status, neighborhood, lat/long).
-- `data/raw/Crime_Data_2022_(Part_1_Offenses).csv` — reported Part 1 offenses in 2022 (offense type, date, block-level address).
+Four Syracuse Open Data sources (static CSV snapshots):
 
-## LLM usage and limits
-- Scope: LLM converts NL -> JSON intent only (response_format JSON). Temperature low.
-- Guardrails: intents validated against `schema.py`; unsupported datasets/fields are rejected.
-- Data access: LLM never touches data; computations are deterministic DuckDB queries.
+| Dataset | Description | Key Fields |
+|---------|-------------|------------|
+| Code Violations | Housing code enforcement (2017-present) | neighborhood, violation type, status |
+| Rental Registry | Rental property inspections | zip, validity dates, SBL |
+| Vacant Properties | Administratively identified vacancies | neighborhood, registry status |
+| Crime Data 2022 | Part 1 offenses with geocoded neighborhoods | crime type, neighborhood, arrest status |
 
-## Run locally
+## Architecture
+
 ```
+User Question → Intent Parser (GPT-4) → Schema Validation → SQL Builder → DuckDB → Results + Charts
+```
+
+- **Intent Parser**: Converts natural language to structured JSON intent
+- **Schema Validation**: Enforces allowed datasets, fields, and filters
+- **SQL Builder**: Generates deterministic DuckDB queries (single-table and cross-dataset joins)
+- **Data Quality**: Handles nulls with configurable strategies (label, drop, keep)
+
+## Tech Stack
+
+- **Backend**: FastAPI + DuckDB
+- **Frontend**: Tailwind CSS + Plotly.js
+- **LLM**: OpenAI GPT-4 (intent parsing only - never touches data)
+- **Deployment**: Render-ready (render.yaml included)
+
+## Run Locally
+
+```bash
+# Clone and setup
+git clone https://github.com/prathyusha1231/Ask-Syracuse-Data.git
+cd Ask-Syracuse-Data
 python -m venv venv
-.\venv\Scripts\activate
+.\venv\Scripts\activate  # Windows
 pip install -r requirements.txt
-# optional: set GPT key for intent parsing
-copy .env.example .env  # then set OPENAI_API_KEY=...
-python main.py "Which neighborhoods have the most code violations?"
-```
-Streamlit test UI (optional):
-```
-streamlit run ui_streamlit.py
+
+# Set OpenAI API key
+copy .env.example .env  # then add OPENAI_API_KEY=...
+
+# Download data files to data/raw/ (see Data Sources below)
+
+# Run the web app
+python -m uvicorn app:app --reload
+# Open http://127.0.0.1:8000
 ```
 
-## Recent tests (2025-12-27)
-- "How many code violations are there?" -> 137,663 (SQL: SELECT count(*) FROM violations)
-- "How many vacant properties are there?" -> 1,651 (SQL: SELECT count(*) FROM vacant_properties)
-- "How many crimes were reported in 2022?" -> 5,642 (SQL with year filter on dateend)
-- "Which neighborhoods have the most code violations?" -> counts by neighborhood
-- "Which zip codes have the most vacant properties?" -> counts by zip (zip_code alias supported)
-- "What types of crimes were most common in 2022?" -> counts by code_defined
-- Rejected by guardrails (expected): cross-dataset questions (e.g., crime vs rental, vacant vs violations) and unsupported group_bys
+## Example Queries
 
-## Roadmap
-- [ ] Improve SQL intent routing accuracy
-- [ ] Add more example NL → SQL queries
-- [ ] Refactor schema handling
-- [ ] Add evaluation benchmarks
+| Question | What it does |
+|----------|--------------|
+| "How many code violations are there?" | Total count |
+| "Which neighborhoods have the most crime?" | Crime counts grouped by neighborhood |
+| "Show violations by status" | Breakdown by open/closed/etc |
+| "Which zip codes have rental properties with violations?" | Cross-dataset join analysis |
 
-## Limitations / ethical framing
-- Administrative records are not ground truth; reporting/enforcement vary by area.
-- Crime is block-level and reported incidents only.
-- Counts should be normalized for neighborhood comparisons; avoid stigmatizing language.
-- Outputs are descriptive, not causal; always present limitations with results.
+## Data Sources
+
+Download from [Syracuse Open Data](https://data.syr.gov):
+- Code_Violations_V2.csv
+- Syracuse_Rental_Registry.csv
+- Vacant_Properties.csv
+- Crime_Data_2022_(Part_1_Offenses).csv
+
+Place in `data/raw/` directory.
+
+## LLM Usage
+
+- **Scope**: LLM converts natural language → JSON intent only
+- **Guardrails**: All intents validated against schema; unsupported queries rejected
+- **Data Access**: LLM never sees or executes SQL; all computations are deterministic
+
+## Limitations
+
+- Administrative records reflect reporting/enforcement patterns, not ground truth
+- Crime data is block-level (addresses generalized for privacy)
+- Counts should be normalized for fair neighborhood comparisons
+- Outputs are descriptive, not causal - always consider context
+
+## License
+
+MIT

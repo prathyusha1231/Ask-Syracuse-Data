@@ -1,6 +1,7 @@
 """
 CLI entry point for Ask Syracuse Data.
 Pipeline: question -> LLM intent -> validate -> SQL -> DuckDB -> result.
+Supports both single-dataset queries and cross-dataset joins.
 """
 from __future__ import annotations
 import sys
@@ -16,7 +17,7 @@ from data_utils import (
 )
 from llm.intent_parser import parse_intent
 from llm.openai_client import make_openai_intent_llm, load_api_key
-from sql_builder import build_select_sql
+from sql_builder import build_select_sql, build_join_sql
 
 
 LOADERS = {
@@ -44,17 +45,40 @@ def run_query(question: str) -> dict:
                 "limitations": "",
             }
 
+    raw_intent = None
     try:
         raw_intent = parse_intent(question, llm=llm_fn)
-        intent = schema.validate_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
         note = " (GPT disabled; set OPENAI_API_KEY to enable)" if llm_fn is None else ""
         return {
             "result": None,
-            "intent": raw_intent if "raw_intent" in locals() else None,
+            "intent": raw_intent,
             "metadata": {},
             "sql": None,
-            "error": f"Unable to parse/validate intent: {exc}{note}",
+            "error": f"Unable to parse intent: {exc}{note}",
+            "limitations": "",
+        }
+
+    # Determine if this is a join query or single-dataset query
+    is_join = raw_intent.get("query_type") == "join"
+
+    if is_join:
+        return _run_join_query(raw_intent)
+    else:
+        return _run_single_query(raw_intent)
+
+
+def _run_single_query(raw_intent: dict) -> dict:
+    """Execute a single-dataset query."""
+    try:
+        intent = schema.validate_intent(raw_intent)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "result": None,
+            "intent": raw_intent,
+            "metadata": {},
+            "sql": None,
+            "error": f"Validation failed: {exc}",
             "limitations": "",
         }
 
@@ -93,7 +117,129 @@ def run_query(question: str) -> dict:
     )
 
     metadata = {
+        "query_type": "single",
         "dataset": dataset,
+        "filters": intent.get("filters") or {},
+        "group_by": intent.get("group_by"),
+        "metric": intent.get("metric"),
+        "limit": intent.get("limit"),
+        "row_count": len(result_df),
+    }
+
+    return {
+        "result": result_df,
+        "intent": intent,
+        "metadata": metadata,
+        "limitations": limitations,
+        "sql": sql,
+        "error": None,
+    }
+
+
+def _run_join_query(raw_intent: dict) -> dict:
+    """Execute a cross-dataset join query."""
+    try:
+        intent = schema.validate_join_intent(raw_intent)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "result": None,
+            "intent": raw_intent,
+            "metadata": {},
+            "sql": None,
+            "error": f"Join validation failed: {exc}",
+            "limitations": "",
+        }
+
+    primary = intent["primary_dataset"]
+    secondary = intent["secondary_dataset"]
+    join_type = intent["join_type"]
+
+    # Get dataset configs
+    primary_cfg = schema.get_dataset_config(primary)
+    secondary_cfg = schema.get_dataset_config(secondary)
+
+    # Get join config
+    try:
+        join_info = schema.get_join_config(primary, secondary)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "result": None,
+            "intent": intent,
+            "metadata": {},
+            "sql": None,
+            "error": f"Join config error: {exc}",
+            "limitations": "",
+        }
+
+    # Find the correct join key config
+    join_config = join_info["config"]
+    join_key_config = next(
+        (jk for jk in join_config["join_keys"] if jk["type"] == join_type),
+        None
+    )
+    if not join_key_config:
+        return {
+            "result": None,
+            "intent": intent,
+            "metadata": {},
+            "sql": None,
+            "error": f"Join type '{join_type}' not found in config.",
+            "limitations": "",
+        }
+
+    # Adjust key order if join was defined in reverse
+    if join_info["order"] == "reversed":
+        join_key_config = {
+            "left": join_key_config["right"],
+            "right": join_key_config["left"],
+            "type": join_key_config["type"],
+        }
+
+    # Load datasets
+    primary_loader = LOADERS.get(primary)
+    secondary_loader = LOADERS.get(secondary)
+    if not primary_loader or not secondary_loader:
+        return {
+            "result": None,
+            "intent": intent,
+            "metadata": {},
+            "sql": None,
+            "error": f"Missing loader for '{primary}' or '{secondary}'.",
+            "limitations": "",
+        }
+
+    try:
+        primary_df = primary_loader()
+        secondary_df = secondary_loader()
+
+        conn = duckdb.connect(database=":memory:")
+        conn.register(primary_cfg["table"], primary_df)
+        conn.register(secondary_cfg["table"], secondary_df)
+
+        sql = build_join_sql(intent, primary_cfg, secondary_cfg, join_key_config)
+        result_df = conn.execute(sql).df()
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "result": None,
+            "intent": intent,
+            "metadata": {},
+            "sql": sql if "sql" in locals() else None,
+            "error": f"Failed to execute join SQL: {exc}",
+            "limitations": "",
+        }
+
+    limitations = (
+        f"Cross-dataset join via {join_type}. Static CSV snapshots only. "
+        f"Join may exclude records with missing/null {join_type} values. "
+        "LLM used only for intent parsing; it never accesses data."
+    )
+
+    metadata = {
+        "query_type": "join",
+        "primary_dataset": primary,
+        "secondary_dataset": secondary,
+        "join_type": join_type,
+        "join_description": join_config.get("description", ""),
         "filters": intent.get("filters") or {},
         "group_by": intent.get("group_by"),
         "metric": intent.get("metric"),

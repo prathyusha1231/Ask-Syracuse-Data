@@ -8,8 +8,18 @@ venv/
 
 # Local documents to exclude
 Research_Task_09.docx
+Research_Task_09_Instructions.txt
 ResponseSummary.pdf
-"ResponseSummary (1).pdf"
+ResponseSummary (1).pdf
+week5-6.pdf
+IMPLEMENTATION_LOG.txt
+
+# Data files (too large for git)
+data/
+geocode_cache.json
+
+# Windows artifacts
+nul
 
 # Secrets / env
 .env

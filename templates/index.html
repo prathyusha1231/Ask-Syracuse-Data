@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask Syracuse Data</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        syracuse: {
+                            orange: '#F76900',
+                            blue: '#003F77',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #003F77 0%, #1e3a5f 100%);
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #F76900;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold">Ask Syracuse Data</h1>
+                    <p class="text-blue-200 mt-1">Query city data using natural language</p>
+                </div>
+                <div class="hidden md:block">
+                    <span class="bg-white/20 px-3 py-1 rounded-full text-sm">
+                        Powered by GPT-4 + DuckDB
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Query Input Section -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <label for="question" class="block text-gray-700 font-semibold mb-2">
+                What would you like to know?
+            </label>
+            <div class="flex gap-3">
+                <input
+                    type="text"
+                    id="question"
+                    placeholder="e.g., How many code violations are there by neighborhood?"
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-syracuse-orange focus:border-transparent outline-none transition"
+                    onkeypress="if(event.key === 'Enter') submitQuery()"
+                >
+                <button
+                    onclick="submitQuery()"
+                    id="submitBtn"
+                    class="bg-syracuse-orange hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center gap-2"
+                >
+                    <span>Query</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Example Queries -->
+            <div class="mt-4">
+                <p class="text-sm text-gray-500 mb-2">Try these examples:</p>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setQuestion('How many code violations are there?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Total violations
+                    </button>
+                    <button onclick="setQuestion('Violations by neighborhood')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        By neighborhood
+                    </button>
+                    <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Rentals + violations
+                    </button>
+                    <button onclick="setQuestion('How many violations are in vacant properties?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Vacant + violations
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden">
+            <div class="bg-white rounded-xl shadow-md p-8 text-center">
+                <div class="loader mx-auto mb-4"></div>
+                <p class="text-gray-600">Processing your question...</p>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden">
+            <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="errorMessage" class="text-red-700"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden space-y-6 fade-in">
+            <!-- Description Card -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-start gap-4">
+                    <div class="bg-green-100 p-2 rounded-lg">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="font-semibold text-gray-800 text-lg" id="resultDescription"></h2>
+                        <p class="text-gray-500 text-sm mt-1" id="limitations"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="border-b border-gray-200">
+                    <nav class="flex">
+                        <button onclick="showTab('data')" id="tab-data" class="tab-btn px-6 py-3 font-medium text-syracuse-orange border-b-2 border-syracuse-orange">
+                            Data
+                        </button>
+                        <button onclick="showTab('chart')" id="tab-chart" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                            Chart
+                        </button>
+                        <button onclick="showTab('map')" id="tab-map" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700 hidden">
+                            Map
+                        </button>
+                        <button onclick="showTab('insights')" id="tab-insights" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                            Insights
+                        </button>
+                        <button onclick="showTab('sql')" id="tab-sql" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                            SQL
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="p-6">
+                    <!-- Data Tab -->
+                    <div id="content-data" class="tab-content">
+                        <div class="overflow-x-auto">
+                            <table id="dataTable" class="w-full text-left">
+                                <thead id="tableHead" class="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
+                                </thead>
+                                <tbody id="tableBody" class="divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Chart Tab -->
+                    <div id="content-chart" class="tab-content hidden">
+                        <div id="chartContainer" style="width:100%; height:450px;"></div>
+                        <p id="noChart" class="text-gray-500 text-center py-8 hidden">
+                            Chart not available for this query type.
+                        </p>
+                    </div>
+
+                    <!-- Map Tab -->
+                    <div id="content-map" class="tab-content hidden">
+                        <div id="mapContainer" style="width:100%; height:450px;"></div>
+                        <p id="noMap" class="text-gray-500 text-center py-8 hidden">
+                            Map not available for this query.
+                        </p>
+                    </div>
+
+                    <!-- Insights Tab -->
+                    <div id="content-insights" class="tab-content hidden">
+                        <div id="insightsContent" class="prose max-w-none">
+                        </div>
+                        <p id="noInsights" class="text-gray-500 text-center py-8 hidden">
+                            Set OPENAI_API_KEY to enable AI-powered insights.
+                        </p>
+                    </div>
+
+                    <!-- SQL Tab -->
+                    <div id="content-sql" class="tab-content hidden">
+                        <pre id="sqlCode" class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-sm"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-100 border-t mt-12">
+        <div class="max-w-6xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
+            <p>Data source: Syracuse Open Data Portal</p>
+            <p class="mt-1">LLM used only for query parsing, never accesses raw data</p>
+        </div>
+    </footer>
+
+    <script>
+        // Syracuse neighborhood coordinates (approximate centroids)
+        const NEIGHBORHOOD_COORDS = {
+            'Northside': { lat: 43.075, lon: -76.155 },
+            'Brighton': { lat: 43.022, lon: -76.147 },
+            'Near Westside': { lat: 43.045, lon: -76.170 },
+            'Eastwood': { lat: 43.048, lon: -76.100 },
+            'Washington Square': { lat: 43.040, lon: -76.135 },
+            'Elmwood': { lat: 43.025, lon: -76.175 },
+            'Southside': { lat: 43.030, lon: -76.150 },
+            'Park Ave': { lat: 43.050, lon: -76.175 },
+            'Southwest': { lat: 43.020, lon: -76.180 },
+            'North Valley': { lat: 43.065, lon: -76.135 },
+            'Skunk City': { lat: 43.010, lon: -76.200 },
+            'Lincoln Hill': { lat: 43.055, lon: -76.125 },
+            'Court-Woodlawn': { lat: 43.060, lon: -76.145 },
+            'Strathmore': { lat: 43.025, lon: -76.115 },
+            'Salt Springs': { lat: 43.035, lon: -76.095 },
+            'Downtown': { lat: 43.050, lon: -76.150 },
+            'Westcott': { lat: 43.040, lon: -76.120 },
+            'University Hill': { lat: 43.038, lon: -76.135 },
+            'Hawley Green': { lat: 43.055, lon: -76.140 },
+            'Meadowbrook': { lat: 43.070, lon: -76.085 },
+            'Far Westside': { lat: 43.035, lon: -76.195 },
+            'Tipp Hill': { lat: 43.040, lon: -76.185 },
+            'Sedgwick': { lat: 43.055, lon: -76.110 },
+            'Near Eastside': { lat: 43.050, lon: -76.140 },
+            'Outer Comstock': { lat: 43.035, lon: -76.110 },
+            'South Valley': { lat: 43.015, lon: -76.140 },
+            'University Neighborhood': { lat: 43.040, lon: -76.130 },
+            'Lakefront': { lat: 43.080, lon: -76.180 },
+            'Winkworth': { lat: 43.005, lon: -76.150 },
+            'Franklin Square': { lat: 43.055, lon: -76.160 },
+            'South Campus': { lat: 43.032, lon: -76.130 },
+            'Not Recorded': { lat: 43.045, lon: -76.150 }
+        };
+
+        // Track if query involves neighborhoods
+        let hasNeighborhoodData = false;
+        let currentChartData = null;
+
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // Reset all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-syracuse-orange', 'border-b-2', 'border-syracuse-orange');
+                el.classList.add('text-gray-500');
+            });
+            // Show selected content
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            // Highlight selected tab
+            const tabBtn = document.getElementById(`tab-${tabName}`);
+            tabBtn.classList.add('text-syracuse-orange', 'border-b-2', 'border-syracuse-orange');
+            tabBtn.classList.remove('text-gray-500');
+
+            // Resize charts/maps when shown
+            if (tabName === 'chart') {
+                setTimeout(() => Plotly.Plots.resize('chartContainer'), 100);
+            }
+            if (tabName === 'map') {
+                setTimeout(() => Plotly.Plots.resize('mapContainer'), 100);
+            }
+        }
+
+        // Set example question
+        function setQuestion(q) {
+            document.getElementById('question').value = q;
+            submitQuery();
+        }
+
+        // Submit query
+        async function submitQuery() {
+            const question = document.getElementById('question').value.trim();
+            if (!question) {
+                showError('Please enter a question.');
+                return;
+            }
+
+            // Show loading, hide others
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('results').classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                document.getElementById('loading').classList.add('hidden');
+
+                if (!data.success) {
+                    showError(data.error || 'Query failed');
+                    return;
+                }
+
+                displayResults(data);
+
+            } catch (err) {
+                document.getElementById('loading').classList.add('hidden');
+                showError('Failed to connect to server: ' + err.message);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function displayResults(data) {
+            document.getElementById('results').classList.remove('hidden');
+
+            // Description
+            document.getElementById('resultDescription').textContent = data.description || 'Query completed';
+            document.getElementById('limitations').textContent = data.limitations || '';
+
+            // Data table
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            // Check if data involves neighborhoods
+            hasNeighborhoodData = data.columns && data.columns.some(col =>
+                col.toLowerCase().includes('neighborhood')
+            );
+
+            // Show/hide map tab based on neighborhood data
+            const mapTab = document.getElementById('tab-map');
+            if (hasNeighborhoodData && data.data && data.data.length > 1) {
+                mapTab.classList.remove('hidden');
+            } else {
+                mapTab.classList.add('hidden');
+            }
+
+            if (data.columns && data.data) {
+                // Header
+                const headerRow = document.createElement('tr');
+                data.columns.forEach(col => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-3';
+                    th.textContent = col;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+
+                // Body
+                data.data.forEach((row, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                    data.columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.className = 'px-4 py-3 text-gray-700';
+                        td.textContent = row[col] ?? '';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Chart
+            const chartContainer = document.getElementById('chartContainer');
+            const noChart = document.getElementById('noChart');
+
+            if (data.chart_data) {
+                noChart.classList.add('hidden');
+                chartContainer.style.display = 'block';
+                currentChartData = data.chart_data;
+                renderChart(data.chart_data);
+            } else {
+                chartContainer.style.display = 'none';
+                noChart.classList.remove('hidden');
+            }
+
+            // Map (if neighborhood data)
+            const mapContainer = document.getElementById('mapContainer');
+            const noMap = document.getElementById('noMap');
+
+            if (hasNeighborhoodData && data.chart_data) {
+                noMap.classList.add('hidden');
+                mapContainer.style.display = 'block';
+                renderMap(data.chart_data);
+            } else {
+                mapContainer.style.display = 'none';
+                noMap.classList.remove('hidden');
+            }
+
+            // Insights
+            const insightsContent = document.getElementById('insightsContent');
+            const noInsights = document.getElementById('noInsights');
+
+            if (data.insights) {
+                noInsights.classList.add('hidden');
+                insightsContent.classList.remove('hidden');
+                // Convert markdown-like bullets to HTML
+                const formatted = data.insights
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^\* /gm, '<li>')
+                    .replace(/^- /gm, '<li>')
+                    .split('\n')
+                    .map(line => line.startsWith('<li>') ? line + '</li>' : `<p>${line}</p>`)
+                    .join('');
+                insightsContent.innerHTML = `<ul class="list-disc list-inside space-y-2 text-gray-700">${formatted}</ul>`;
+            } else {
+                insightsContent.classList.add('hidden');
+                noInsights.classList.remove('hidden');
+            }
+
+            // SQL
+            document.getElementById('sqlCode').textContent = data.sql || 'No SQL generated';
+
+            // Show data tab by default
+            showTab('data');
+        }
+
+        function renderChart(chartData) {
+            const container = document.getElementById('chartContainer');
+
+            // Clear any existing chart
+            Plotly.purge(container);
+
+            if (chartData.type === 'grouped_bar') {
+                const traces = chartData.datasets.map((ds, idx) => ({
+                    x: chartData.labels,
+                    y: ds.data,
+                    name: ds.label,
+                    type: 'bar',
+                    marker: { color: idx === 0 ? '#F76900' : '#003F77' }
+                }));
+
+                Plotly.newPlot(container, traces, {
+                    barmode: 'group',
+                    xaxis: { title: chartData.x_label, tickangle: -45 },
+                    yaxis: { title: 'Count' },
+                    margin: { b: 120, l: 60, r: 40, t: 40 },
+                    legend: { orientation: 'h', y: 1.1 }
+                }, { responsive: true });
+
+            } else if (chartData.type === 'bar') {
+                const trace = {
+                    x: chartData.labels,
+                    y: chartData.values,
+                    type: 'bar',
+                    marker: {
+                        color: chartData.values,
+                        colorscale: [[0, '#93c5fd'], [1, '#1d4ed8']],
+                        showscale: false
+                    },
+                    text: chartData.values.map(v => v.toLocaleString()),
+                    textposition: 'outside',
+                    hovertemplate: '%{x}<br>Count: %{y:,}<extra></extra>'
+                };
+
+                Plotly.newPlot(container, [trace], {
+                    xaxis: {
+                        title: chartData.x_label,
+                        tickangle: -45,
+                        automargin: true
+                    },
+                    yaxis: {
+                        title: chartData.y_label,
+                        automargin: true
+                    },
+                    margin: { b: 120, l: 80, r: 40, t: 40 },
+                    hoverlabel: { bgcolor: '#1d4ed8' }
+                }, { responsive: true });
+            }
+        }
+
+        function renderMap(chartData) {
+            const container = document.getElementById('mapContainer');
+
+            // Clear any existing map
+            Plotly.purge(container);
+
+            // Prepare data for scatter map
+            const neighborhoods = chartData.labels;
+            const values = chartData.values || (chartData.datasets ? chartData.datasets[0].data : []);
+
+            const lats = [];
+            const lons = [];
+            const texts = [];
+            const sizes = [];
+
+            // Normalize values for bubble sizes
+            const maxVal = Math.max(...values);
+            const minSize = 15;
+            const maxSize = 50;
+
+            neighborhoods.forEach((name, idx) => {
+                const coords = NEIGHBORHOOD_COORDS[name];
+                if (coords) {
+                    lats.push(coords.lat);
+                    lons.push(coords.lon);
+                    texts.push(`${name}<br>Count: ${values[idx].toLocaleString()}`);
+                    // Scale size based on value
+                    const normalizedSize = minSize + (values[idx] / maxVal) * (maxSize - minSize);
+                    sizes.push(normalizedSize);
+                }
+            });
+
+            const trace = {
+                type: 'scattermapbox',
+                lat: lats,
+                lon: lons,
+                mode: 'markers',
+                marker: {
+                    size: sizes,
+                    color: values.filter((_, i) => NEIGHBORHOOD_COORDS[neighborhoods[i]]),
+                    colorscale: [[0, '#fef3c7'], [0.5, '#f97316'], [1, '#dc2626']],
+                    showscale: true,
+                    colorbar: {
+                        title: 'Count',
+                        thickness: 15
+                    }
+                },
+                text: texts,
+                hoverinfo: 'text'
+            };
+
+            const layout = {
+                mapbox: {
+                    style: 'carto-positron',
+                    center: { lat: 43.045, lon: -76.145 },
+                    zoom: 11.5
+                },
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                showlegend: false
+            };
+
+            Plotly.newPlot(container, [trace], layout, { responsive: true });
+        }
+    </script>
+</body>
+</html>
