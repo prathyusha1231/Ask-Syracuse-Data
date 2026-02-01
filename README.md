@@ -9,6 +9,9 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 - **Cross-Dataset Analysis**: Join violations with rental properties, vacant properties, and more
 - **Auto-Insights**: AI-generated insights explaining what the data means
 - **Data Quality Handling**: Robust null value handling with configurable strategies
+- **Validation**: Ground-truth comparison ensures query results match direct calculations
+- **Bias Detection**: Automatic warnings for framing, normalization, selection, and context biases
+- **Data Citations**: Full source attribution with dataset caveats and limitations
 
 ## Datasets
 
@@ -83,6 +86,38 @@ Place in `data/raw/` directory.
 - **Scope**: LLM converts natural language → JSON intent only
 - **Guardrails**: All intents validated against schema; unsupported queries rejected
 - **Data Access**: LLM never sees or executes SQL; all computations are deterministic
+
+## Validation & Bias Detection
+
+The app includes built-in safeguards to ensure accurate and responsible data interpretation:
+
+**Validation (validation.py)**
+- Compares query results against ground-truth pandas calculations
+- Sanity checks for outliers, null groups, and suspicious counts
+- Validates join results against direct merge operations
+
+**Bias Detection (bias_detection.py)**
+- **Framing**: Warns about leading language ("most dangerous", "worst")
+- **Normalization**: Alerts when raw counts need population context
+- **Selection**: Notes dataset-specific collection biases
+- **Context**: Identifies missing analytical context
+- **Uncertainty**: Flags sources of uncertainty in results
+
+View these in the **Validation** and **Sources** tabs in the web UI.
+
+## Testing
+
+Run the evaluation benchmarks:
+
+```bash
+# Quick benchmark (12 tests)
+python eval_benchmarks.py
+
+# Comprehensive test (30 questions, easy to hard)
+python test_app_comprehensive.py
+```
+
+Current test results: **30/30 passing (100%)**
 
 ## Limitations
 
