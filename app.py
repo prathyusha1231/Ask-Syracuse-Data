@@ -169,6 +169,76 @@ Use bullet points. Don't repeat raw numbers - interpret them."""
 
 
 # =============================================================================
+# DATA SOURCE CITATIONS
+# =============================================================================
+DATA_CITATIONS = {
+    "violations": {
+        "name": "Code Violations V2",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/code-violations",
+        "date_range": "2017-present",
+        "update_frequency": "Daily",
+        "caveats": [
+            "Records reflect enforcement activity, not all actual violations",
+            "Reporting patterns may vary by neighborhood and inspector",
+            "Address-level data may be approximate",
+        ],
+    },
+    "rental_registry": {
+        "name": "Syracuse Rental Registry",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/rental-registry",
+        "date_range": "Current registrations",
+        "update_frequency": "Weekly",
+        "caveats": [
+            "Only includes registered rental properties",
+            "Unregistered rentals are not captured",
+            "Registration status may lag actual conditions",
+        ],
+    },
+    "vacant_properties": {
+        "name": "Vacant Properties",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/vacant-properties",
+        "date_range": "Current listings",
+        "update_frequency": "Monthly",
+        "caveats": [
+            "Administrative designation may not reflect actual occupancy",
+            "Properties may be vacant but not yet identified",
+            "Demolition/renovation status may be outdated",
+        ],
+    },
+    "crime_2022": {
+        "name": "Crime Data 2022 (Part 1 Offenses)",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/crime-data-2022",
+        "date_range": "January - December 2022",
+        "update_frequency": "Static (annual)",
+        "caveats": [
+            "Only Part 1 offenses (serious crimes) included",
+            "Addresses generalized to block level for privacy",
+            "Reflects reported crimes, not all incidents",
+            "Under-reporting varies by crime type",
+        ],
+    },
+}
+
+
+def get_citation_text(dataset: str) -> dict:
+    """Get formatted citation for a dataset."""
+    citation = DATA_CITATIONS.get(dataset, {})
+    if not citation:
+        return {}
+    return {
+        "name": citation.get("name", dataset),
+        "source": citation.get("source", "Syracuse Open Data"),
+        "url": citation.get("url", "https://data.syr.gov"),
+        "date_range": citation.get("date_range", "Unknown"),
+        "caveats": citation.get("caveats", []),
+    }
+
+
+# =============================================================================
 # REQUEST/RESPONSE MODELS
 # =============================================================================
 class QueryRequest(BaseModel):
@@ -185,6 +255,9 @@ class QueryResponse(BaseModel):
     sql: str | None = None
     metadata: dict | None = None
     limitations: str | None = None
+    validation: dict | None = None
+    bias_warnings: list[dict] | None = None
+    citations: list[dict] | None = None
     error: str | None = None
 
 
@@ -211,6 +284,8 @@ async def query_data(req: QueryRequest):
             error=result["error"],
             sql=result.get("sql"),
             metadata=result.get("metadata"),
+            validation=result.get("validation"),
+            bias_warnings=result.get("bias_warnings"),
         )
 
     df = result.get("result")
@@ -286,6 +361,20 @@ async def query_data(req: QueryRequest):
     # Generate insights
     insights = generate_insights(df, metadata, req.question)
 
+    # Get citations based on datasets used
+    citations = []
+    if metadata.get("query_type") == "join":
+        primary = metadata.get("primary_dataset")
+        secondary = metadata.get("secondary_dataset")
+        if primary:
+            citations.append(get_citation_text(primary))
+        if secondary:
+            citations.append(get_citation_text(secondary))
+    else:
+        dataset = metadata.get("dataset")
+        if dataset:
+            citations.append(get_citation_text(dataset))
+
     return QueryResponse(
         success=True,
         description=description,
@@ -296,6 +385,9 @@ async def query_data(req: QueryRequest):
         sql=result.get("sql"),
         metadata=metadata,
         limitations=result.get("limitations"),
+        validation=result.get("validation"),
+        bias_warnings=result.get("bias_warnings"),
+        citations=citations,
     )
 
 

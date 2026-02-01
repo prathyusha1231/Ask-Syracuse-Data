@@ -2,6 +2,7 @@
 CLI entry point for Ask Syracuse Data.
 Pipeline: question -> LLM intent -> validate -> SQL -> DuckDB -> result.
 Supports both single-dataset queries and cross-dataset joins.
+Includes validation against ground-truth and bias detection.
 """
 from __future__ import annotations
 import sys
@@ -18,6 +19,13 @@ from data_utils import (
 from llm.intent_parser import parse_intent
 from llm.openai_client import make_openai_intent_llm, load_api_key
 from sql_builder import build_select_sql, build_join_sql
+from validation import (
+    validate_count_result,
+    validate_join_result,
+    sanity_check_result,
+    combine_validations,
+)
+from bias_detection import run_all_bias_checks
 
 
 LOADERS = {
@@ -26,6 +34,9 @@ LOADERS = {
     "crime_2022": load_crime_2022,
     "rental_registry": load_rental_registry,
 }
+
+# Cache for loaded dataframes (for validation)
+_df_cache = {}
 
 
 def run_query(question: str) -> dict:
@@ -43,6 +54,8 @@ def run_query(question: str) -> dict:
                 "sql": None,
                 "error": f"Unable to initialize LLM client: {exc}",
                 "limitations": "",
+                "validation": None,
+                "bias_warnings": [],
             }
 
     raw_intent = None
@@ -57,19 +70,33 @@ def run_query(question: str) -> dict:
             "sql": None,
             "error": f"Unable to parse intent: {exc}{note}",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     # Determine if this is a join query or single-dataset query
     is_join = raw_intent.get("query_type") == "join"
 
     if is_join:
-        return _run_join_query(raw_intent)
+        response = _run_join_query(raw_intent)
     else:
-        return _run_single_query(raw_intent)
+        response = _run_single_query(raw_intent)
+
+    # Run bias detection on successful queries
+    if response.get("result") is not None and response.get("error") is None:
+        bias_result = run_all_bias_checks(
+            question,
+            response["result"],
+            response.get("intent", {}),
+            response.get("metadata", {}),
+        )
+        response["bias_warnings"] = bias_result.to_list()
+
+    return response
 
 
 def _run_single_query(raw_intent: dict) -> dict:
-    """Execute a single-dataset query."""
+    """Execute a single-dataset query with validation."""
     try:
         intent = schema.validate_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
@@ -80,6 +107,8 @@ def _run_single_query(raw_intent: dict) -> dict:
             "sql": None,
             "error": f"Validation failed: {exc}",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     dataset = intent["dataset"]
@@ -93,10 +122,16 @@ def _run_single_query(raw_intent: dict) -> dict:
             "sql": None,
             "error": f"No loader found for dataset '{dataset}'.",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     try:
-        df = loader()
+        # Load data (cache for validation)
+        if dataset not in _df_cache:
+            _df_cache[dataset] = loader()
+        df = _df_cache[dataset]
+
         conn = duckdb.connect(database=":memory:")
         conn.register(cfg["table"], df)
         sql = build_select_sql(intent, cfg)
@@ -109,6 +144,8 @@ def _run_single_query(raw_intent: dict) -> dict:
             "sql": sql if "sql" in locals() else None,
             "error": f"Failed to execute SQL: {exc}",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     limitations = (
@@ -126,6 +163,11 @@ def _run_single_query(raw_intent: dict) -> dict:
         "row_count": len(result_df),
     }
 
+    # Run validation against ground-truth
+    count_validation = validate_count_result(result_df, df, intent, metadata)
+    sanity_validation = sanity_check_result(result_df, intent, metadata)
+    validation = combine_validations(count_validation, sanity_validation)
+
     return {
         "result": result_df,
         "intent": intent,
@@ -133,11 +175,13 @@ def _run_single_query(raw_intent: dict) -> dict:
         "limitations": limitations,
         "sql": sql,
         "error": None,
+        "validation": validation.to_dict(),
+        "bias_warnings": [],
     }
 
 
 def _run_join_query(raw_intent: dict) -> dict:
-    """Execute a cross-dataset join query."""
+    """Execute a cross-dataset join query with validation."""
     try:
         intent = schema.validate_join_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
@@ -148,6 +192,8 @@ def _run_join_query(raw_intent: dict) -> dict:
             "sql": None,
             "error": f"Join validation failed: {exc}",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     primary = intent["primary_dataset"]
@@ -169,6 +215,8 @@ def _run_join_query(raw_intent: dict) -> dict:
             "sql": None,
             "error": f"Join config error: {exc}",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     # Find the correct join key config
@@ -185,6 +233,8 @@ def _run_join_query(raw_intent: dict) -> dict:
             "sql": None,
             "error": f"Join type '{join_type}' not found in config.",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     # Adjust key order if join was defined in reverse
@@ -206,11 +256,19 @@ def _run_join_query(raw_intent: dict) -> dict:
             "sql": None,
             "error": f"Missing loader for '{primary}' or '{secondary}'.",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     try:
-        primary_df = primary_loader()
-        secondary_df = secondary_loader()
+        # Load data (cache for validation)
+        if primary not in _df_cache:
+            _df_cache[primary] = primary_loader()
+        if secondary not in _df_cache:
+            _df_cache[secondary] = secondary_loader()
+
+        primary_df = _df_cache[primary]
+        secondary_df = _df_cache[secondary]
 
         conn = duckdb.connect(database=":memory:")
         conn.register(primary_cfg["table"], primary_df)
@@ -226,6 +284,8 @@ def _run_join_query(raw_intent: dict) -> dict:
             "sql": sql if "sql" in locals() else None,
             "error": f"Failed to execute join SQL: {exc}",
             "limitations": "",
+            "validation": None,
+            "bias_warnings": [],
         }
 
     limitations = (
@@ -247,6 +307,13 @@ def _run_join_query(raw_intent: dict) -> dict:
         "row_count": len(result_df),
     }
 
+    # Run validation against ground-truth
+    join_validation = validate_join_result(
+        result_df, primary_df, secondary_df, intent, join_key_config
+    )
+    sanity_validation = sanity_check_result(result_df, intent, metadata)
+    validation = combine_validations(join_validation, sanity_validation)
+
     return {
         "result": result_df,
         "intent": intent,
@@ -254,6 +321,8 @@ def _run_join_query(raw_intent: dict) -> dict:
         "limitations": limitations,
         "sql": sql,
         "error": None,
+        "validation": validation.to_dict(),
+        "bias_warnings": [],
     }
 
 

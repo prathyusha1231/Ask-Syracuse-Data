@@ -172,6 +172,12 @@
                         <button onclick="showTab('sql')" id="tab-sql" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
                             SQL
                         </button>
+                        <button onclick="showTab('validation')" id="tab-validation" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                            Validation
+                        </button>
+                        <button onclick="showTab('sources')" id="tab-sources" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                            Sources
+                        </button>
                     </nav>
                 </div>
 
@@ -217,6 +223,32 @@
                     <!-- SQL Tab -->
                     <div id="content-sql" class="tab-content hidden">
                         <pre id="sqlCode" class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-sm"></pre>
+                    </div>
+
+                    <!-- Validation Tab -->
+                    <div id="content-validation" class="tab-content hidden">
+                        <div id="validationContent" class="space-y-4">
+                            <!-- Validation Status -->
+                            <div id="validationStatus" class="p-4 rounded-lg">
+                            </div>
+                            <!-- Bias Warnings -->
+                            <div id="biasWarnings" class="space-y-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sources Tab -->
+                    <div id="content-sources" class="tab-content hidden">
+                        <div id="sourcesContent" class="space-y-4">
+                        </div>
+                        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                            <p class="text-sm text-blue-800">
+                                <strong>Data Integrity Note:</strong> All data comes from static CSV snapshots downloaded from
+                                <a href="https://data.syr.gov" target="_blank" class="underline">Syracuse Open Data Portal</a>.
+                                The LLM is used only for parsing natural language queries into structured intents - it never
+                                accesses, modifies, or interprets the raw data. All computations are deterministic SQL queries.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -446,8 +478,116 @@
             // SQL
             document.getElementById('sqlCode').textContent = data.sql || 'No SQL generated';
 
+            // Validation
+            renderValidation(data.validation, data.bias_warnings);
+
+            // Sources/Citations
+            renderSources(data.citations);
+
             // Show data tab by default
             showTab('data');
+        }
+
+        function renderValidation(validation, biasWarnings) {
+            const statusEl = document.getElementById('validationStatus');
+            const biasEl = document.getElementById('biasWarnings');
+
+            // Validation status
+            if (validation) {
+                const passed = validation.passed;
+                const warnings = validation.warnings || [];
+                const errors = validation.errors || [];
+
+                let statusHtml = '';
+                if (passed && warnings.length === 0) {
+                    statusHtml = `
+                        <div class="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span><strong>Validation Passed:</strong> Results match ground-truth calculations.</span>
+                        </div>
+                    `;
+                } else {
+                    let items = [];
+                    errors.forEach(e => items.push(`<li class="text-red-700">${e}</li>`));
+                    warnings.forEach(w => items.push(`<li class="text-yellow-700">${w}</li>`));
+
+                    const bgColor = errors.length > 0 ? 'bg-red-50' : 'bg-yellow-50';
+                    statusHtml = `
+                        <div class="${bgColor} p-3 rounded-lg">
+                            <p class="font-semibold mb-2">${errors.length > 0 ? 'Validation Issues:' : 'Validation Warnings:'}</p>
+                            <ul class="list-disc list-inside space-y-1 text-sm">${items.join('')}</ul>
+                        </div>
+                    `;
+                }
+                statusEl.innerHTML = statusHtml;
+            } else {
+                statusEl.innerHTML = '<p class="text-gray-500">No validation data available.</p>';
+            }
+
+            // Bias warnings
+            if (biasWarnings && biasWarnings.length > 0) {
+                let biasHtml = '<h3 class="font-semibold text-gray-700 mb-2">Data Interpretation Considerations:</h3>';
+                biasWarnings.forEach(w => {
+                    const iconMap = {
+                        'info': { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                        'warning': { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+                        'caution': { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' }
+                    };
+                    const style = iconMap[w.severity] || iconMap['info'];
+
+                    biasHtml += `
+                        <div class="${style.bg} ${style.text} p-3 rounded-lg flex items-start gap-2 mb-2">
+                            <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${style.icon}"></path>
+                            </svg>
+                            <div>
+                                <span class="font-medium capitalize">${w.type}:</span>
+                                <span class="text-sm">${w.message}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                biasEl.innerHTML = biasHtml;
+            } else {
+                biasEl.innerHTML = '';
+            }
+        }
+
+        function renderSources(citations) {
+            const sourcesEl = document.getElementById('sourcesContent');
+
+            if (!citations || citations.length === 0) {
+                sourcesEl.innerHTML = '<p class="text-gray-500">No source information available.</p>';
+                return;
+            }
+
+            let html = '';
+            citations.forEach(c => {
+                if (!c.name) return;
+
+                html += `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-semibold text-gray-800">${c.name}</h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Source: <a href="${c.url}" target="_blank" class="text-blue-600 hover:underline">${c.source}</a>
+                        </p>
+                        <p class="text-sm text-gray-600">Date Range: ${c.date_range}</p>
+
+                        ${c.caveats && c.caveats.length > 0 ? `
+                            <div class="mt-3">
+                                <p class="text-sm font-medium text-gray-700">Important Caveats:</p>
+                                <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+                                    ${c.caveats.map(caveat => `<li>${caveat}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            sourcesEl.innerHTML = html;
         }
 
         function renderChart(chartData) {

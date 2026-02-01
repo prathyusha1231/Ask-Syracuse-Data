@@ -41,7 +41,23 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
     """Deterministic fallback for common join queries when LLM is unavailable."""
     q = question.lower()
 
-    # rental + violations (most common expected query)
+    # vacant + violations (check first since "properties" could match rental)
+    if "vacant" in q and "violation" in q:
+        # Default to sbl for property-level queries, zip for aggregate
+        join_type = "sbl" if ("specific" in q or "how many" in q or "count" in q) else "zip"
+        group_by = "zip" if join_type == "zip" else None
+        return {
+            "query_type": "join",
+            "primary_dataset": "vacant_properties",
+            "secondary_dataset": "violations",
+            "join_type": join_type,
+            "metric": "count",
+            "group_by": group_by,
+            "filters": {},
+            "limit": None,
+        }
+
+    # rental + violations
     if ("rental" in q or "propert" in q) and "violation" in q:
         # Determine join type based on keywords
         join_type = "sbl" if ("specific" in q or "property" in q or "address" in q) else "zip"
@@ -55,21 +71,6 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
             "group_by": group_by,
             "filters": {},
             "limit": 20 if join_type == "sbl" else None,
-        }
-
-    # vacant + violations
-    if "vacant" in q and "violation" in q:
-        join_type = "sbl" if ("specific" in q or "property" in q) else "zip"
-        group_by = "zip" if join_type == "zip" else "neighborhood"
-        return {
-            "query_type": "join",
-            "primary_dataset": "vacant_properties",
-            "secondary_dataset": "violations",
-            "join_type": join_type,
-            "metric": "count",
-            "group_by": group_by,
-            "filters": {},
-            "limit": None,
         }
 
     # rental + vacant
@@ -98,14 +99,22 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
 
     # Single-dataset queries
     if "violation" in q:
-        group_by = "neighborhood" if "neighborhood" in q else None
-        if "zip" in q:
+        group_by = None
+        if "neighborhood" in q:
+            group_by = "neighborhood"
+        elif "zip" in q:
             group_by = "complaint_zip"
+        elif "status" in q:
+            group_by = "status_type_name"
+        elif "type" in q:
+            group_by = "violation"
         return {"dataset": "violations", "metric": "count", "group_by": group_by, "filters": {}}
 
     if "vacant" in q:
-        group_by = "neighborhood" if "neighborhood" in q else None
-        if "zip" in q:
+        group_by = None
+        if "neighborhood" in q:
+            group_by = "neighborhood"
+        elif "zip" in q:
             group_by = "zip"
         return {"dataset": "vacant_properties", "metric": "count", "group_by": group_by, "filters": {}}
 
@@ -114,7 +123,12 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
         return {"dataset": "rental_registry", "metric": "count", "group_by": group_by, "filters": {}}
 
     if "crime" in q or "offense" in q:
-        return {"dataset": "crime_2022", "metric": "count", "group_by": "code_defined", "filters": {}}
+        group_by = "code_defined"  # default to crime type
+        if "neighborhood" in q:
+            group_by = "neighborhood"
+        elif "arrest" in q:
+            group_by = "arrest"
+        return {"dataset": "crime_2022", "metric": "count", "group_by": group_by, "filters": {}}
 
     return None
 
