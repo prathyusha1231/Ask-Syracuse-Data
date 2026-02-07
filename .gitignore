@@ -23,3 +23,7 @@ nul
 
 # Secrets / env
 .env
+
+# Claude Code
+.claude/
+CLAUDE.md

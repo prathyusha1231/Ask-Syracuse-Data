@@ -21,8 +21,8 @@ DATASETS: Dict[str, Dict[str, Any]] = {
     "crime_2022": {
         "table": "crime_2022",
         "date_column": "dateend",
-        "allowed_group_by": ["code_defined", "arrest", "neighborhood"],
-        "allowed_filters": {"year": "int", "code_defined": "text", "neighborhood": "text"},
+        "allowed_group_by": ["code_defined", "arrest", "neighborhood", "zip"],
+        "allowed_filters": {"year": "int", "code_defined": "text", "neighborhood": "text", "zip": "text"},
     },
     "rental_registry": {
         "table": "rental_registry",
@@ -76,6 +76,20 @@ ALLOWED_JOINS: Dict[tuple, Dict[str, Any]] = {
         ],
         "description": "Join rental registry to vacant properties",
     },
+    ("crime_2022", "violations"): {
+        "join_keys": [
+            {"left": "zip", "right": "complaint_zip", "type": "zip"},
+            {"left": "neighborhood", "right": "neighborhood", "type": "neighborhood"},
+        ],
+        "description": "Join crime data to code violations",
+    },
+    ("crime_2022", "vacant_properties"): {
+        "join_keys": [
+            {"left": "zip", "right": "zip", "type": "zip"},
+            {"left": "neighborhood", "right": "neighborhood", "type": "neighborhood"},
+        ],
+        "description": "Join crime data to vacant properties",
+    },
 }
 
 # Aliases for join type detection
@@ -86,6 +100,8 @@ JOIN_TYPE_ALIASES = {
     "sbl": "sbl",
     "property": "sbl",
     "address": "sbl",
+    "neighborhood": "neighborhood",
+    "neighbourhood": "neighborhood",
 }
 
 

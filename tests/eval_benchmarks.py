@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 import pandas as pd
 
-from main import run_query
+from pipeline.main import run_query
 from llm.intent_parser import parse_intent, _heuristic_intent
 
 

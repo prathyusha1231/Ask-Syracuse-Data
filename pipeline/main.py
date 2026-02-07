@@ -9,8 +9,8 @@ import sys
 import duckdb
 import pandas as pd
 
-import schema
-from data_utils import (
+from . import schema
+from .data_utils import (
     load_code_violations,
     load_rental_registry,
     load_vacant_properties,
@@ -18,14 +18,14 @@ from data_utils import (
 )
 from llm.intent_parser import parse_intent
 from llm.openai_client import make_openai_intent_llm, load_api_key
-from sql_builder import build_select_sql, build_join_sql
-from validation import (
+from .sql_builder import build_select_sql, build_join_sql
+from .validation import (
     validate_count_result,
     validate_join_result,
     sanity_check_result,
     combine_validations,
 )
-from bias_detection import run_all_bias_checks
+from .bias_detection import run_all_bias_checks
 
 
 LOADERS = {

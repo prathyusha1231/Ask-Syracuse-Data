@@ -5,7 +5,7 @@ Tests 30 questions ranging from easy to hard.
 from __future__ import annotations
 import sys
 import pandas as pd
-from main import run_query
+from pipeline.main import run_query
 
 # =============================================================================
 # TEST QUESTIONS (Easy -> Medium -> Hard)

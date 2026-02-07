@@ -12,10 +12,11 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
 # Paths
-DATA_DIR = Path(__file__).resolve().parent / "data" / "raw"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = REPO_ROOT / "data" / "raw"
 CRIME_FILE = DATA_DIR / "Crime_Data_2022_(Part_1_Offenses).csv"
 OUTPUT_FILE = DATA_DIR / "Crime_Data_2022_enriched.csv"
-CACHE_FILE = Path(__file__).resolve().parent / "geocode_cache.json"
+CACHE_FILE = REPO_ROOT / "geocode_cache.json"
 
 # ZIP to Neighborhood mapping (from violations data)
 ZIP_TO_NEIGHBORHOOD = {

@@ -5,7 +5,7 @@ Handles null values, data validation, and quality reporting.
 from __future__ import annotations
 import pandas as pd
 from typing import Dict, Any, Callable
-from data_utils import (
+from .data_utils import (
     load_code_violations,
     load_rental_registry,
     load_vacant_properties,

@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Dict, Optional
 
-from llm.prompt_templates import NL_TO_INTENT_PROMPT, NL_TO_JOIN_INTENT_PROMPT
+from .prompt_templates import NL_TO_INTENT_PROMPT, NL_TO_JOIN_INTENT_PROMPT
 
 LLMCallable = Callable[[str], str]
 
@@ -29,6 +29,12 @@ def _is_join_query(question: str) -> bool:
         ("vacant" in q and "violation" in q),
         # rental + vacant
         ("rental" in q and "vacant" in q),
+        # crime + violations
+        ("crime" in q and "violation" in q),
+        # crime + vacant
+        ("crime" in q and "vacant" in q),
+        # "vs" comparisons involving crime
+        ("crime" in q and "vs" in q),
         # Generic join indicators
         ("with" in q and any(d in q for d in ["violation", "vacant", "rental"])),
         ("properties" in q and "violation" in q),
@@ -86,6 +92,55 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
             "limit": 20,
         }
 
+    # crime + violations
+    if "crime" in q and "violation" in q:
+        join_type = "zip" if "zip" in q else "neighborhood"
+        return {
+            "query_type": "join",
+            "primary_dataset": "crime_2022",
+            "secondary_dataset": "violations",
+            "join_type": join_type,
+            "metric": "count",
+            "group_by": None,
+            "filters": {},
+            "limit": None,
+        }
+
+    # crime + vacant
+    if "crime" in q and "vacant" in q:
+        join_type = "zip" if "zip" in q else "neighborhood"
+        return {
+            "query_type": "join",
+            "primary_dataset": "crime_2022",
+            "secondary_dataset": "vacant_properties",
+            "join_type": join_type,
+            "metric": "count",
+            "group_by": None,
+            "filters": {},
+            "limit": None,
+        }
+
+    # crime + "vs" (generic comparison)
+    if "crime" in q and "vs" in q:
+        # Determine secondary dataset from context
+        if "vacant" in q:
+            secondary = "vacant_properties"
+        elif "violation" in q:
+            secondary = "violations"
+        else:
+            secondary = "vacant_properties"  # default
+        join_type = "zip" if "zip" in q else "neighborhood"
+        return {
+            "query_type": "join",
+            "primary_dataset": "crime_2022",
+            "secondary_dataset": secondary,
+            "join_type": join_type,
+            "metric": "count",
+            "group_by": None,
+            "filters": {},
+            "limit": None,
+        }
+
     return None
 
 
@@ -126,6 +181,8 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
         group_by = "code_defined"  # default to crime type
         if "neighborhood" in q:
             group_by = "neighborhood"
+        elif "zip" in q:
+            group_by = "zip"
         elif "arrest" in q:
             group_by = "arrest"
         return {"dataset": "crime_2022", "metric": "count", "group_by": group_by, "filters": {}}

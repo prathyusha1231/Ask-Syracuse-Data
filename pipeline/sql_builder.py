@@ -172,6 +172,62 @@ def _build_sbl_join_sql(
     return sql
 
 
+def _build_neighborhood_join_sql(
+    intent: Dict[str, Any],
+    primary_config: Dict[str, Any],
+    secondary_config: Dict[str, Any],
+    join_key_config: Dict[str, Any],
+) -> str:
+    """
+    Build a neighborhood-based JOIN using CTEs to pre-aggregate each dataset.
+
+    Same CTE pattern as ZIP joins to avoid many-to-many inflation.
+    """
+    primary_table = primary_config["table"]
+    secondary_table = secondary_config["table"]
+
+    left_key = join_key_config["left"]
+    right_key = join_key_config["right"]
+
+    filters = intent.get("filters") or {}
+    limit = intent.get("limit")
+    date_col = primary_config.get("date_column")
+
+    # Build WHERE clause for primary table
+    where_clauses = []
+    for key, value in filters.items():
+        if key == "year":
+            if not date_col:
+                raise ValueError("Primary dataset has no date column for year filter.")
+            where_clauses.append(f"date_part('year', {date_col}) = {int(value)}")
+        else:
+            where_clauses.append(f"{key} = {_quote(str(value))}")
+
+    primary_where = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    limit_clause = f" LIMIT {limit}" if limit else ""
+
+    sql = f"""WITH primary_by_nh AS (
+    SELECT {left_key} AS neighborhood, COUNT(*) AS primary_count
+    FROM {primary_table}{primary_where}
+    GROUP BY {left_key}
+),
+secondary_by_nh AS (
+    SELECT {right_key} AS neighborhood, COUNT(*) AS secondary_count
+    FROM {secondary_table}
+    GROUP BY {right_key}
+)
+SELECT
+    p.neighborhood,
+    p.primary_count,
+    COALESCE(s.secondary_count, 0) AS secondary_count
+FROM primary_by_nh p
+LEFT JOIN secondary_by_nh s ON p.neighborhood = s.neighborhood
+ORDER BY p.primary_count DESC{limit_clause};"""
+
+    return sql
+
+
 def build_join_sql(
     intent: Dict[str, Any],
     primary_config: Dict[str, Any],
@@ -192,12 +248,15 @@ def build_join_sql(
 
     Notes:
         - ZIP-based joins use CTEs to pre-aggregate and avoid many-to-many inflation
+        - Neighborhood-based joins use CTEs (same pattern as ZIP)
         - SBL-based joins use direct LEFT JOIN for property-level analysis
     """
     join_type = join_key_config.get("type", "sbl")
 
     if join_type == "zip":
         return _build_zip_join_sql(intent, primary_config, secondary_config, join_key_config)
+    elif join_type == "neighborhood":
+        return _build_neighborhood_join_sql(intent, primary_config, secondary_config, join_key_config)
     else:
         return _build_sbl_join_sql(intent, primary_config, secondary_config, join_key_config)
 

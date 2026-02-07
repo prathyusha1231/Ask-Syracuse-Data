@@ -5,14 +5,13 @@ Deploy: Render, Vercel, or Fly.io
 """
 from __future__ import annotations
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import pandas as pd
 from openai import OpenAI
 
-from main import run_query
+from pipeline.main import run_query
 from llm.openai_client import load_api_key
 
 
@@ -25,8 +24,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Static files and templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Templates
 templates = Jinja2Templates(directory="templates")
 
 
@@ -103,6 +101,8 @@ def generate_description(df: pd.DataFrame, metadata: dict) -> str:
 
         if join_type == "zip":
             return f"Comparing {primary} and {secondary} by ZIP Code. Found {row_count} ZIP codes with data."
+        elif join_type == "neighborhood":
+            return f"Comparing {primary} and {secondary} by Neighborhood. Found {row_count} neighborhoods with data."
         else:
             if row_count == 1 and "count" in df.columns:
                 count_val = df["count"].iloc[0]
@@ -328,7 +328,7 @@ async def query_data(req: QueryRequest):
         if category_col and value_cols:
             chart_df = df.head(15)
 
-            if metadata.get("query_type") == "join" and metadata.get("join_type") == "zip" and len(value_cols) >= 2:
+            if metadata.get("query_type") == "join" and metadata.get("join_type") in ("zip", "neighborhood") and len(value_cols) >= 2:
                 # Grouped bar chart data
                 chart_data = {
                     "type": "grouped_bar",
