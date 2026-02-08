@@ -13,6 +13,7 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 - **Validation**: Ground-truth comparison ensures query results match direct pandas calculations
 - **Bias Detection**: Automatic warnings for framing, normalization, selection, and context biases
 - **Data Citations**: Full source attribution with dataset caveats and limitations
+- **User Feedback**: Thumbs up/down with optional comments, stored in SQLite for tracking query quality
 
 ## Datasets
 
@@ -57,6 +58,7 @@ Intent Parser (detects complexity)
 - **SQL Validator**: Guardrails for LLM-generated SQL (read-only, table allowlist, LIMIT 1000)
 - **Validation**: Compares results against pandas ground-truth calculations
 - **Bias Detection**: Warns about framing, normalization, selection, and context biases
+- **Feedback Loop**: Collects user ratings (thumbs up/down + comments) via SQLite (`data/feedback.db`)
 
 ## Tech Stack
 
@@ -151,6 +153,14 @@ Download from [Syracuse Open Data](https://data.syr.gov) and place in `data/raw/
 
 View these in the **Validation** and **Sources** tabs in the web UI.
 
+## User Feedback
+
+Every query result includes thumbs up/down buttons with an optional comment box. Feedback is stored in SQLite (`data/feedback.db`) with full context: question, SQL, dataset, and a unique query ID.
+
+**API Endpoints:**
+- `POST /api/feedback` — Submit feedback (query_id, question, rating, optional comment)
+- `GET /api/feedback/stats` — View totals and recent feedback entries
+
 ## Testing
 
 ```bash
@@ -178,7 +188,7 @@ python -m tests.test_app_comprehensive
 ## Limitations
 
 - Administrative records reflect reporting/enforcement patterns, not ground truth
-- Crime data covers 2022 only (Part 1 offenses); addresses generalized to block level
+- Crime data covers 2022-2025 (Part 1 & 2 offenses; 2025 is partial); addresses generalized to block level
 - Counts should be normalized for fair neighborhood comparisons
 - Assessed values may differ from market values
 - Lead testing data is census-tract level (research use)
