@@ -25,11 +25,41 @@ NULL_STRATEGIES: Dict[str, Dict[str, Dict[str, Any]]] = {
     },
     "vacant_properties": {
         "neighborhood": {"strategy": "label", "label": "Not Recorded"},
+        "vpr_valid": {"strategy": "label", "label": "Not Recorded"},
+        "vpr_result": {"strategy": "label", "label": "Not Recorded"},
     },
     "crime": {
         "code_defined": {"strategy": "label", "label": "Unspecified"},
         "arrest": {"strategy": "label", "label": "Unknown"},
         "neighborhood": {"strategy": "label", "label": "Unknown"},
+    },
+    "unfit_properties": {
+        "department_name": {"strategy": "label", "label": "Not Recorded"},
+        "complaint_type_name": {"strategy": "label", "label": "Not Recorded"},
+        "status_type_name": {"strategy": "label", "label": "Unknown Status"},
+    },
+    "trash_pickup": {
+        "sanitation": {"strategy": "label", "label": "Not Scheduled"},
+        "recyclingw": {"strategy": "label", "label": "Not Scheduled"},
+    },
+    "historical_properties": {
+        "lpss": {"strategy": "label", "label": "Not Designated"},
+        "nr_eligible": {"strategy": "label", "label": "Not Evaluated"},
+    },
+    "assessment_roll": {
+        "prop_class_description": {"strategy": "label", "label": "Unclassified"},
+    },
+    "cityline_requests": {
+        "agency_name": {"strategy": "label", "label": "Not Assigned"},
+        "category": {"strategy": "label", "label": "Uncategorized"},
+        "report_source": {"strategy": "label", "label": "Unknown Source"},
+    },
+    "parking_violations": {
+        "description": {"strategy": "label", "label": "Not Recorded"},
+        "status": {"strategy": "label", "label": "Unknown Status"},
+    },
+    "permit_requests": {
+        "permit_type": {"strategy": "label", "label": "Not Recorded"},
     },
 }
 
@@ -208,11 +238,11 @@ def _normalize_neighborhood(df: pd.DataFrame, col: str = "neighborhood") -> pd.D
 CRIME_FILES = [
     # (enriched_csv, raw_csv, part)
     ("Crime_Data_2022_enriched.csv", "Crime_Data_2022_(Part_1_Offenses).csv", 1),
-    ("Crime_Data_2023_enriched.csv", "Crime_Data_2023_(Part_1_Offenses).csv", 1),
-    ("Crime_Data_2023_enriched.csv", "Crime_Data_2023_(Part_2_Offenses).csv", 2),
-    ("Crime_Data_2024_enriched.csv", "Crime_Data_2024_(Part_1_Offenses).csv", 1),
-    ("Crime_Data_2024_enriched.csv", "Crime_Data_2024_(Part_2_Offenses).csv", 2),
-    ("Crime_Data_2025_enriched.csv", "Crime_Data_2025_(Part_1_Offenses).csv", 1),
+    ("Crime_Data_2023_(Part_1_Offenses)_enriched.csv", "Crime_Data_2023_(Part_1_Offenses).csv", 1),
+    ("Crime_Data_2023_(Part_2_Offenses)_enriched.csv", "Crime_Data_2023_(Part_2_Offenses).csv", 2),
+    ("Crime_Data_2024_(Part_1_Offenses)_enriched.csv", "Crime_Data_2024_(Part_1_Offenses).csv", 1),
+    ("Crime_Data_2024_(Part_2_Offenses)_enriched.csv", "Crime_Data_2024_(Part_2_Offenses).csv", 2),
+    ("Crime_Data_2025_(Part_1_Offenses)_enriched.csv", "Crime_Data_2025_(Part_1_Offenses).csv", 1),
 ]
 
 
@@ -280,6 +310,7 @@ def load_unfit_properties() -> pd.DataFrame:
     df = _clean_columns(df)
     df = _parse_epoch_ms(df, ["violation_date", "comply_by_date", "status_date", "comp_open_date", "comp_close_date"])
     df = _normalize_sbl(df)
+    df = _apply_null_handling(df, "unfit_properties")
     return df
 
 
@@ -292,6 +323,7 @@ def load_trash_pickup() -> pd.DataFrame:
     # Normalize zip to Int64
     if "zip" in df.columns:
         df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
+    df = _apply_null_handling(df, "trash_pickup")
     return df
 
 
@@ -303,6 +335,7 @@ def load_historical_properties() -> pd.DataFrame:
     df = _normalize_sbl(df)
     if "zip" in df.columns:
         df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
+    df = _apply_null_handling(df, "historical_properties")
     return df
 
 
@@ -314,6 +347,11 @@ def load_assessment_roll() -> pd.DataFrame:
     df = _normalize_sbl(df)
     if "total_assessment" in df.columns:
         df["total_assessment"] = pd.to_numeric(df["total_assessment"], errors="coerce")
+    # Extract ZIP from property_city (e.g. "Syracuse, NY 13205" -> 13205)
+    if "property_city" in df.columns:
+        extracted = df["property_city"].str.extract(r'(\d{5})\s*$', expand=False)
+        df["zip"] = pd.to_numeric(extracted, errors="coerce").astype(pd.Int64Dtype())
+    df = _apply_null_handling(df, "assessment_roll")
     return df
 
 
@@ -329,6 +367,7 @@ def load_cityline_requests() -> pd.DataFrame:
     if "lat" in df.columns and "lng" in df.columns:
         df = df.rename(columns={"lat": "latitude", "lng": "longitude"})
         df = _assign_zip_from_coords(df)
+    df = _apply_null_handling(df, "cityline_requests")
     return df
 
 
@@ -367,10 +406,13 @@ def load_parking_violations() -> pd.DataFrame:
     df = pd.read_csv(path)
     df = _clean_columns(df)
     df = _parse_epoch_ms(df, ["issued_date"])
+    if "amount" in df.columns:
+        df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
     # Rename coordinate columns for _assign_zip_from_coords
     if "lat" in df.columns and "long" in df.columns:
         df = df.rename(columns={"lat": "latitude", "long": "longitude"})
         df = _assign_zip_from_coords(df)
+    df = _apply_null_handling(df, "parking_violations")
     return df
 
 
@@ -385,6 +427,7 @@ def load_permit_requests() -> pd.DataFrame:
         df = _assign_zip_from_coords(df)
     elif "latitude" in df.columns and "longitude" in df.columns:
         df = _assign_zip_from_coords(df)
+    df = _apply_null_handling(df, "permit_requests")
     return df
 
 
