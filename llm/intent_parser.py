@@ -264,7 +264,7 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
         join_type = "zip" if "zip" in q else "neighborhood"
         return {
             "query_type": "join",
-            "primary_dataset": "crime_2022",
+            "primary_dataset": "crime",
             "secondary_dataset": "violations",
             "join_type": join_type,
             "metric": "count",
@@ -278,7 +278,7 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
         join_type = "zip" if "zip" in q else "neighborhood"
         return {
             "query_type": "join",
-            "primary_dataset": "crime_2022",
+            "primary_dataset": "crime",
             "secondary_dataset": "vacant_properties",
             "join_type": join_type,
             "metric": "count",
@@ -326,7 +326,7 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
         join_type = "zip" if "zip" in q else "neighborhood"
         return {
             "query_type": "join",
-            "primary_dataset": "crime_2022",
+            "primary_dataset": "crime",
             "secondary_dataset": secondary,
             "join_type": join_type,
             "metric": "count",
@@ -456,28 +456,30 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
         return intent
 
     if ("crime" in q or "offense" in q) and "parking" not in q:
-        group_by = "code_defined"  # default to crime type
+        group_by = None
         if "neighborhood" in q:
             group_by = "neighborhood"
         elif "zip" in q:
             group_by = "zip"
         elif "arrest" in q:
             group_by = "arrest"
+        elif "type" in q or "code" in q or "kind" in q:
+            group_by = "code_defined"
 
         if temporal_group:
-            # Crime data is 2022-only, so month is the main temporal
-            temporal = "month" if temporal_group == "year" else temporal_group
             if group_by:
-                group_by = [group_by, temporal]
+                group_by = [group_by, temporal_group]
             else:
-                group_by = temporal
+                group_by = temporal_group
+        elif group_by is None:
+            group_by = "code_defined"  # default to crime type when no other grouping
 
         filters = {}
         if year_filter:
             filters["year"] = year_filter
 
         intent = {
-            "dataset": "crime_2022",
+            "dataset": "crime",
             "metric": metric,
             "group_by": group_by,
             "filters": filters,

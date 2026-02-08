@@ -64,22 +64,25 @@ DATASETS: Dict[str, Dict[str, Any]] = {
             "quarter": ("completion_date", "quarter"),
         },
     },
-    "crime_2022": {
-        "table": "crime_2022",
+    "crime": {
+        "table": "crime",
         "date_column": "dateend",
         "allowed_metrics": ["count", "count_distinct"],
         "allowed_group_by": [
             "code_defined", "arrest", "neighborhood", "zip",
-            "month",
+            "year", "month", "quarter", "crime_part",
         ],
         "allowed_filters": {
             "year": "int", "code_defined": "text",
             "neighborhood": "text", "zip": "text",
+            "crime_part": "int",
         },
         "allowed_distinct_columns": ["address", "neighborhood", "zip"],
         "computed_columns": {},
         "temporal_group_map": {
+            "year": ("dateend", "year"),
             "month": ("dateend", "month"),
+            "quarter": ("dateend", "quarter"),
         },
     },
     "rental_registry": {
@@ -105,11 +108,12 @@ DATASETS: Dict[str, Dict[str, Any]] = {
         "date_column": "violation_date",
         "allowed_metrics": ["count", "count_distinct"],
         "allowed_group_by": [
-            "zip", "status_type_name", "violation", "vacant",
+            "zip", "status_type_name", "violation", "department_name", "complaint_type_name",
             "year", "month",
         ],
         "allowed_filters": {
-            "year": "int", "zip": "text", "status_type_name": "text", "vacant": "text",
+            "year": "int", "zip": "text", "status_type_name": "text",
+            "department_name": "text", "complaint_type_name": "text",
         },
         "allowed_distinct_columns": ["sbl", "address"],
         "computed_columns": {},
@@ -235,7 +239,7 @@ DATASETS: Dict[str, Dict[str, Any]] = {
     "parking_violations": {
         "table": "parking_violations",
         "date_column": "issued_date",
-        "allowed_metrics": ["count", "count_distinct"],
+        "allowed_metrics": ["count", "count_distinct", "avg", "min", "max", "sum"],
         "allowed_group_by": [
             "zip", "description", "status",
             "year", "month",
@@ -244,7 +248,13 @@ DATASETS: Dict[str, Dict[str, Any]] = {
             "year": "int", "zip": "text", "description": "text", "status": "text",
         },
         "allowed_distinct_columns": ["ticket_number", "location"],
-        "computed_columns": {},
+        "computed_columns": {
+            "amount": {
+                "expr": "amount",
+                "type": "numeric",
+                "null_filter": "amount IS NOT NULL",
+            },
+        },
         "temporal_group_map": {
             "year": ("issued_date", "year"),
             "month": ("issued_date", "month"),
@@ -317,11 +327,13 @@ DATASET_ALIASES = {
     "vacant": "vacant_properties",
     "vacancy": "vacant_properties",
     "vacant properties": "vacant_properties",
-    "crime": "crime_2022",
-    "crime data": "crime_2022",
-    "crime_data": "crime_2022",
-    "crimes": "crime_2022",
-    "part 1 crime": "crime_2022",
+    "crime": "crime",
+    "crime data": "crime",
+    "crime_data": "crime",
+    "crimes": "crime",
+    "part 1 crime": "crime",
+    "part 2 crime": "crime",
+    "crime_2022": "crime",
     "rental": "rental_registry",
     "rental registry": "rental_registry",
     "unfit": "unfit_properties",
@@ -390,14 +402,14 @@ ALLOWED_JOINS: Dict[tuple, Dict[str, Any]] = {
         ],
         "description": "Join rental registry to vacant properties",
     },
-    ("crime_2022", "violations"): {
+    ("crime", "violations"): {
         "join_keys": [
             {"left": "zip", "right": "complaint_zip", "type": "zip"},
             {"left": "neighborhood", "right": "neighborhood", "type": "neighborhood"},
         ],
         "description": "Join crime data to code violations",
     },
-    ("crime_2022", "vacant_properties"): {
+    ("crime", "vacant_properties"): {
         "join_keys": [
             {"left": "zip", "right": "zip", "type": "zip"},
             {"left": "neighborhood", "right": "neighborhood", "type": "neighborhood"},

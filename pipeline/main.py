@@ -14,7 +14,7 @@ from .data_utils import (
     load_code_violations,
     load_rental_registry,
     load_vacant_properties,
-    load_crime_2022,
+    load_crime,
     load_unfit_properties,
     load_trash_pickup,
     load_historical_properties,
@@ -45,7 +45,7 @@ from .bias_detection import run_all_bias_checks
 LOADERS = {
     "violations": load_code_violations,
     "vacant_properties": load_vacant_properties,
-    "crime_2022": load_crime_2022,
+    "crime": load_crime,
     "rental_registry": load_rental_registry,
     "unfit_properties": load_unfit_properties,
     "trash_pickup": load_trash_pickup,

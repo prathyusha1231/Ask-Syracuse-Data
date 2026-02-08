@@ -26,7 +26,7 @@ NULL_STRATEGIES: Dict[str, Dict[str, Dict[str, Any]]] = {
     "vacant_properties": {
         "neighborhood": {"strategy": "label", "label": "Not Recorded"},
     },
-    "crime_2022": {
+    "crime": {
         "code_defined": {"strategy": "label", "label": "Unspecified"},
         "arrest": {"strategy": "label", "label": "Unknown"},
         "neighborhood": {"strategy": "label", "label": "Unknown"},
@@ -205,18 +205,60 @@ def _normalize_neighborhood(df: pd.DataFrame, col: str = "neighborhood") -> pd.D
     return df
 
 
-def load_crime_2022() -> pd.DataFrame:
-    """Load Part 1 crime incidents for 2022 (enriched with geocoded neighborhoods)."""
-    # Use enriched file with neighborhood data if available
-    enriched_file = DATA_DIR / "Crime_Data_2022_enriched.csv"
-    if enriched_file.exists():
-        df = _load_csv("Crime_Data_2022_enriched.csv", date_cols=["dateend"])
-    else:
-        df = _load_csv("Crime_Data_2022_(Part_1_Offenses).csv", date_cols=["dateend"])
-    df = _apply_null_handling(df, "crime_2022")
-    # Derive ZIP from lat/long (crime data has ~100% null zip but ~97% coords)
+CRIME_FILES = [
+    # (enriched_csv, raw_csv, part)
+    ("Crime_Data_2022_enriched.csv", "Crime_Data_2022_(Part_1_Offenses).csv", 1),
+    ("Crime_Data_2023_enriched.csv", "Crime_Data_2023_(Part_1_Offenses).csv", 1),
+    ("Crime_Data_2023_enriched.csv", "Crime_Data_2023_(Part_2_Offenses).csv", 2),
+    ("Crime_Data_2024_enriched.csv", "Crime_Data_2024_(Part_1_Offenses).csv", 1),
+    ("Crime_Data_2024_enriched.csv", "Crime_Data_2024_(Part_2_Offenses).csv", 2),
+    ("Crime_Data_2025_enriched.csv", "Crime_Data_2025_(Part_1_Offenses).csv", 1),
+]
+
+
+def load_crime() -> pd.DataFrame:
+    """Load Part 1 & Part 2 crime data for all available years (2022-2025)."""
+    frames = []
+    for enriched_name, raw_name, part in CRIME_FILES:
+        enriched_path = DATA_DIR / enriched_name
+        raw_path = DATA_DIR / raw_name
+        if enriched_path.exists():
+            df = _load_csv(enriched_name, date_cols=["dateend"])
+        elif raw_path.exists():
+            df = _load_csv(raw_name, date_cols=["dateend"])
+        else:
+            continue  # skip missing files
+
+        # Normalize lat/long column names (2023/2024/2025 use 'lat'/'long')
+        if "lat" in df.columns and "latitude" not in df.columns:
+            df = df.rename(columns={"lat": "latitude"})
+        if "long" in df.columns and "longitude" not in df.columns:
+            df = df.rename(columns={"long": "longitude"})
+
+        # Add year from dateend
+        if "dateend" in df.columns:
+            df["year"] = pd.to_datetime(df["dateend"], errors="coerce").dt.year
+
+        # Tag part number
+        df["crime_part"] = part
+
+        frames.append(df)
+
+    if not frames:
+        raise FileNotFoundError("No crime data CSV files found in data/raw/.")
+
+    df = pd.concat(frames, ignore_index=True)
+
+    # Re-parse dateend after concat (mixed formats across CSVs can produce object dtype)
+    if "dateend" in df.columns:
+        df["dateend"] = pd.to_datetime(df["dateend"], errors="coerce", utc=True)
+
+    df = _apply_null_handling(df, "crime")
+
+    # Derive ZIP from lat/long
     if "latitude" in df.columns and "longitude" in df.columns:
         df = _assign_zip_from_coords(df)
+
     # Normalize neighborhood names for cross-dataset joins
     df = _normalize_neighborhood(df)
     return df
@@ -366,6 +408,9 @@ def load_lead_testing() -> pd.DataFrame:
         path = DATA_DIR / fname
         if path.exists():
             xls = pd.read_excel(path, engine="openpyxl", header=3)
+            # Convert all column names to strings before cleaning
+            # (year columns are integers like 2013, and str.lower() turns them to NaN)
+            xls.columns = [str(c) for c in xls.columns]
             xls = _clean_columns(xls)
             # Rename first column to census_tract
             first_col = xls.columns[0]
@@ -390,7 +435,7 @@ __all__ = [
     "load_code_violations",
     "load_rental_registry",
     "load_vacant_properties",
-    "load_crime_2022",
+    "load_crime",
     "load_unfit_properties",
     "load_trash_pickup",
     "load_historical_properties",

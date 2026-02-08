@@ -49,7 +49,7 @@ def _apply_filters(
     date_cols = {
         "violations": "violation_date",
         "vacant_properties": "completion_date",
-        "crime_2022": "dateend",
+        "crime": "dateend",
         "rental_registry": "completion_date",
     }
 
@@ -292,6 +292,21 @@ def validate_join_result(
 
     validation.ground_truth["primary_records_with_key"] = int(primary_valid)
     validation.ground_truth["secondary_records_with_key"] = int(secondary_valid)
+
+    # Estimate merge size to avoid OOM on large cross-joins (e.g. ZIP-based joins)
+    left_vals = primary_df[left_key].dropna()
+    right_vals = secondary_df[right_key].dropna()
+    left_counts = left_vals.value_counts()
+    right_counts = right_vals.value_counts()
+    common_keys = left_counts.index.intersection(right_counts.index)
+    estimated_rows = sum(left_counts[k] * right_counts[k] for k in common_keys)
+
+    if estimated_rows > 10_000_000:
+        validation.add_warning(
+            f"Skipping pandas ground-truth merge (estimated {estimated_rows:,} rows would exceed memory). "
+            f"Primary has {int(primary_valid):,} keyed records, secondary has {int(secondary_valid):,}."
+        )
+        return validation
 
     merged = pd.merge(
         primary_df[[left_key]].dropna(),

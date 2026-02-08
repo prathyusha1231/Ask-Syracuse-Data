@@ -30,7 +30,7 @@ Rules:
 Available datasets:
 - violations: Housing code violations (group_by: neighborhood, complaint_zip, status_type_name, violation, year, month, quarter)
 - vacant_properties: Vacant property records (group_by: neighborhood, zip, vpr_valid, vpr_result, year, month, quarter)
-- crime_2022: Part 1 crime data 2022 (group_by: code_defined, arrest, neighborhood, zip, month)
+- crime: Part 1 & 2 crime data 2022-2025 (group_by: code_defined, arrest, neighborhood, zip, year, month, quarter, crime_part)
 - rental_registry: Rental property records (group_by: zip, completion_type_name, rrisvalid, year, month)
 - unfit_properties: Properties deemed unfit for habitation (group_by: zip, status_type_name, violation, vacant, year, month)
 - trash_pickup: Trash collection schedule (group_by: zip, sanitation, recyclingw)
@@ -55,7 +55,7 @@ Computed columns (for avg/min/max metrics):
 Distinct columns (for count_distinct):
 - violations: sbl, complaint_address, neighborhood, complaint_zip
 - vacant_properties: sbl, propertyaddress, neighborhood, zip
-- crime_2022: address, neighborhood, zip
+- crime: address, neighborhood, zip
 - rental_registry: sbl, propertyaddress, zip
 - unfit_properties: sbl, address
 - trash_pickup: sbl
@@ -72,7 +72,7 @@ Distinct columns (for count_distinct):
 Temporal group options:
 - violations: year, month, quarter (based on violation_date)
 - vacant_properties: year, month, quarter (based on completion_date)
-- crime_2022: month (based on dateend, 2022 only)
+- crime: year, month, quarter (based on dateend, 2022-2025; 2025 is partial)
 - rental_registry: year, month (based on completion_date)
 - unfit_properties: year, month (based on violation_date)
 - cityline_requests: year, month (based on created_at_local)
@@ -104,8 +104,11 @@ A: {"dataset": "violations", "metric": "count", "group_by": ["year"], "filters":
 Q: "Violations between 2020 and 2023 by neighborhood"
 A: {"dataset": "violations", "metric": "count", "group_by": ["neighborhood"], "filters": {"year": {"op": "between", "value": [2020, 2023]}}, "limit": null}
 
+Q: "Crime by year"
+A: {"dataset": "crime", "metric": "count", "group_by": ["year"], "filters": {}, "limit": null}
+
 Q: "Crime by month"
-A: {"dataset": "crime_2022", "metric": "count", "group_by": ["month"], "filters": {}, "limit": null}
+A: {"dataset": "crime", "metric": "count", "group_by": ["month"], "filters": {}, "limit": null}
 
 Q: "Violations by neighborhood and year"
 A: {"dataset": "violations", "metric": "count", "group_by": ["neighborhood", "year"], "filters": {}, "limit": null}
@@ -132,7 +135,7 @@ Rules:
 - "query_type" must be "join" for cross-dataset queries.
 - "primary_dataset" is the main focus (what you're analyzing).
 - "secondary_dataset" is what you're counting/joining.
-- "join_type": use "zip" for aggregate analysis by zip code, use "sbl" for property-level analysis, use "neighborhood" ONLY for crime_2022 joins (not for violations/rental/vacant pairs).
+- "join_type": use "zip" for aggregate analysis by zip code, use "sbl" for property-level analysis, use "neighborhood" ONLY for crime joins (not for violations/rental/vacant pairs).
 - "group_by" must be a field from the primary dataset.
 - Do not answer the question. Respond with JSON only.
 
@@ -140,15 +143,15 @@ Available datasets and join combinations:
 - violations + rental_registry: Join by zip or sbl
 - violations + vacant_properties: Join by zip or sbl
 - rental_registry + vacant_properties: Join by zip or sbl
-- crime_2022 + violations: Join by neighborhood or zip
-- crime_2022 + vacant_properties: Join by neighborhood or zip
+- crime + violations: Join by neighborhood or zip
+- crime + vacant_properties: Join by neighborhood or zip
 - unfit_properties + violations: Join by zip or sbl
 - unfit_properties + vacant_properties: Join by zip or sbl
 
 Group-by fields per dataset:
 - violations: neighborhood, complaint_zip, status_type_name, violation
 - vacant_properties: neighborhood, zip, vpr_valid, vpr_result
-- crime_2022: code_defined, arrest, neighborhood, zip
+- crime: code_defined, arrest, neighborhood, zip
 - rental_registry: zip, completion_type_name, rrisvalid
 - unfit_properties: zip, status_type_name, violation, vacant
 
@@ -166,10 +169,10 @@ Q: "Which neighborhoods have both vacant properties and violations?"
 A: {"query_type": "join", "primary_dataset": "vacant_properties", "secondary_dataset": "violations", "join_type": "zip", "metric": "count", "group_by": "neighborhood", "filters": {}, "limit": null}
 
 Q: "Compare crime and violations by neighborhood"
-A: {"query_type": "join", "primary_dataset": "crime_2022", "secondary_dataset": "violations", "join_type": "neighborhood", "metric": "count", "group_by": null, "filters": {}, "limit": null}
+A: {"query_type": "join", "primary_dataset": "crime", "secondary_dataset": "violations", "join_type": "neighborhood", "metric": "count", "group_by": null, "filters": {}, "limit": null}
 
 Q: "Crime vs vacant properties by zip"
-A: {"query_type": "join", "primary_dataset": "crime_2022", "secondary_dataset": "vacant_properties", "join_type": "zip", "metric": "count", "group_by": null, "filters": {}, "limit": null}
+A: {"query_type": "join", "primary_dataset": "crime", "secondary_dataset": "vacant_properties", "join_type": "zip", "metric": "count", "group_by": null, "filters": {}, "limit": null}
 """
 
 NL_TO_SQL_PROMPT = """
@@ -181,7 +184,7 @@ Available tables and columns:
   status_type_name, violation, complaint_address, complaint_zip, sbl, neighborhood
 - vacant_properties: sbl, propertyaddress, zip, neighborhood, vpr_valid, vpr_result,
   completion_date, valid_until
-- crime_2022: dateend, code_defined, address, arrest, latitude, longitude, neighborhood, zip
+- crime: dateend, code_defined, address, arrest, latitude, longitude, neighborhood, zip, year, crime_part (data spans 2022-2025; 2025 is partial; crime_part: 1=Part 1 serious, 2=Part 2 less serious)
 - rental_registry: sbl, propertyaddress, zip, completion_date, valid_until,
   completion_type_name, rrisvalid
 - unfit_properties: complaint_number, address, zip, sbl, violation, violation_date,

@@ -158,9 +158,9 @@ def detect_selection_bias(
             "Code violations reflect enforcement patterns. Areas with more inspections "
             "may show more violations regardless of actual conditions."
         ),
-        "crime_2022": (
-            "Crime data reflects reported incidents. Under-reporting varies by crime type "
-            "and neighborhood, affecting apparent patterns."
+        "crime": (
+            "Crime data reflects reported incidents (2022-2025, Part 1 & 2). Under-reporting varies by crime type "
+            "and neighborhood, affecting apparent patterns. 2025 data is partial."
         ),
         "vacant_properties": (
             "Vacancy records are administratively identified. Actual vacancy rates may differ "
@@ -209,10 +209,10 @@ def detect_missing_context(
 
     # Limited time range for crime data
     dataset = metadata.get("dataset", "")
-    if dataset == "crime_2022":
+    if dataset == "crime":
         result.add(
             "context",
-            "Crime data covers 2022 only. Single-year data may not reflect long-term trends.",
+            "Crime data spans 2022-2025 (Part 1 & Part 2 offenses). 2025 is a partial year with limited records. Neighborhood data may be unavailable for 2023-2025.",
             "info"
         )
 

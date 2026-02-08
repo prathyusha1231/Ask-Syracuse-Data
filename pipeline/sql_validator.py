@@ -16,7 +16,7 @@ ALLOWED_TABLES: Set[str] = {
     "violations",
     "rental_registry",
     "vacant_properties",
-    "crime_2022",
+    "crime",
     "unfit_properties",
     "trash_pickup",
     "historical_properties",

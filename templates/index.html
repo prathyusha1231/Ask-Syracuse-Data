@@ -459,13 +459,14 @@
                     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-6 pt-2">
                         <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-emerald-500">
                             <div class="flex justify-between items-start mb-2">
-                                <h4 class="font-heading font-bold text-charcoal">Crime Data 2022</h4>
-                                <span class="text-xs text-gray-400 font-mono">~5K</span>
+                                <h4 class="font-heading font-bold text-charcoal">Crime Data (2022-2025)</h4>
+                                <span class="text-xs text-gray-400 font-mono">~33K</span>
                             </div>
-                            <p class="text-sm text-gray-500 mb-3">Part 1 offenses (serious crimes) for 2022.</p>
+                            <p class="text-sm text-gray-500 mb-3">Part 1 & 2 offenses (2022-2025). 2025 is partial.</p>
                             <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('Crime by year')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By year</button>
                                 <button onclick="setQuestion('Crime by neighborhood')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By neighborhood</button>
-                                <button onclick="setQuestion('Crime by month')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By month</button>
+                                <button onclick="setQuestion('Crime by type')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By type</button>
                             </div>
                         </div>
                         <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-emerald-500">
@@ -647,8 +648,8 @@
                         <svg class="w-5 h-5 text-syracuse-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                     </div>
                     <div>
-                        <h4 class="font-heading font-semibold text-charcoal mb-1">Crime Data: 2022 Only</h4>
-                        <p class="text-sm text-gray-500">Part 1 offenses only. Addresses generalized to block level for privacy.</p>
+                        <h4 class="font-heading font-semibold text-charcoal mb-1">Crime Data: 2022-2025</h4>
+                        <p class="text-sm text-gray-500">Part 1 & 2 offenses. 2025 is partial. Addresses generalized to block level for privacy.</p>
                     </div>
                 </div>
                 <div class="bg-white rounded-xl p-5 shadow-sm flex items-start gap-4">
@@ -712,7 +713,7 @@
         // =====================================================
         const TYPEWRITER_QUERIES = [
             'How many violations by neighborhood?',
-            'Crime by month in 2022',
+            'Crime by year',
             'Vacant properties by zip code',
             'Most common tree species in Syracuse',
             'Parking violations by type',
