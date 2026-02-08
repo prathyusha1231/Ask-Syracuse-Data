@@ -50,29 +50,287 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        .dataset-card {
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .dataset-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <!-- Header -->
+    <!-- Header / Hero -->
     <header class="gradient-bg text-white shadow-lg">
-        <div class="max-w-6xl mx-auto px-4 py-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold">Ask Syracuse Data</h1>
-                    <p class="text-blue-200 mt-1">Query city data using natural language</p>
-                </div>
-                <div class="hidden md:block">
-                    <span class="bg-white/20 px-3 py-1 rounded-full text-sm">
-                        Powered by GPT-4 + DuckDB
-                    </span>
-                </div>
+        <div class="max-w-6xl mx-auto px-4 py-10 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold mb-3">Ask Syracuse Data</h1>
+            <p class="text-blue-200 text-lg mb-4">Ask questions in plain English about Syracuse city data. Get instant answers with charts, maps, and transparent SQL.</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">15 Datasets</span>
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">400K+ Records</span>
+                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">Powered by DuckDB</span>
             </div>
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto px-4 py-8">
+    <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
+
+        <!-- Who Is This For -->
+        <section class="grid md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-syracuse-orange">
+                <h2 class="text-lg font-bold text-gray-800 mb-2">Current Residents</h2>
+                <p class="text-gray-600 text-sm">Look up trash schedules, check code violations on your block, explore service request trends, and understand neighborhood data.</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Trash Pickup</span>
+                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Violations</span>
+                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Service Requests</span>
+                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Parking</span>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-syracuse-blue">
+                <h2 class="text-lg font-bold text-gray-800 mb-2">Moving to Syracuse?</h2>
+                <p class="text-gray-600 text-sm">Research neighborhoods, compare property assessments, check bike infrastructure, and explore public safety data before you move.</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Assessments</span>
+                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Bike Routes</span>
+                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Crime Data</span>
+                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Trees</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Available Datasets -->
+        <section>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Available Datasets</h2>
+
+            <!-- Housing & Property -->
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Housing & Property</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Code Violations</h4>
+                        <span class="text-xs text-gray-400">~60K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Housing code violation records with dates, status, and location.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many violations by neighborhood?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
+                        <button onclick="setQuestion('Violations by year')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By year</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Vacant Properties</h4>
+                        <span class="text-xs text-gray-400">~3K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Properties designated as vacant by the city.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many vacant properties by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                        <button onclick="setQuestion('Vacant properties by neighborhood')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Rental Registry</h4>
+                        <span class="text-xs text-gray-400">~15K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Registered rental properties with inspection status.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many rental properties by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                        <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Rentals + violations</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Unfit Properties</h4>
+                        <span class="text-xs text-gray-400">353 rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Properties deemed unfit for habitation.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many unfit properties by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                        <button onclick="setQuestion('How many unfit properties are vacant?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Vacant unfit</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Historical Properties</h4>
+                        <span class="text-xs text-gray-400">3,486 rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Historically significant properties and landmark status.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many historical properties are National Register eligible?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">NR eligible</button>
+                        <button onclick="setQuestion('Historical properties by zip code')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Assessment Roll</h4>
+                        <span class="text-xs text-gray-400">~41K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Property assessments with values and class descriptions.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('What is the average property assessment?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Avg assessment</button>
+                        <button onclick="setQuestion('How many residential properties are there?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Residential count</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Public Safety -->
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Public Safety</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Crime Data 2022</h4>
+                        <span class="text-xs text-gray-400">~5K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Part 1 offenses (serious crimes) for 2022.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('Crime by neighborhood')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
+                        <button onclick="setQuestion('Crime by month')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By month</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Parking Violations</h4>
+                        <span class="text-xs text-gray-400">~197K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Parking tickets with violation type, status, and fine amount.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many parking violations by type?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By type</button>
+                        <button onclick="setQuestion('Parking violations by zip code')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- City Services -->
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">City Services</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">SYRCityline Requests</h4>
+                        <span class="text-xs text-gray-400">~116K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">311 service requests with category, agency, and response times.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Top complaints</button>
+                        <button onclick="setQuestion('How many service requests by category?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By category</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Trash Pickup</h4>
+                        <span class="text-xs text-gray-400">~41K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Collection day and recycling week by address.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Monday pickup</button>
+                        <button onclick="setQuestion('Trash pickup schedule by zip code')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Permit Requests</h4>
+                        <span class="text-xs text-gray-400">~47K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Building permits with type and issue date.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many building permits by type?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By type</button>
+                        <button onclick="setQuestion('Permits by year')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By year</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Infrastructure -->
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Infrastructure</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Bike Suitability</h4>
+                        <span class="text-xs text-gray-400">868 rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Road-level bike suitability ratings.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('Bike suitability ratings breakdown')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Ratings</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Bike Infrastructure</h4>
+                        <span class="text-xs text-gray-400">59 rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Trails, lanes, and paths with mileage.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many miles of bike lanes are there?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Total miles</button>
+                        <button onclick="setQuestion('Bike infrastructure by type')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By type</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Snow Routes</h4>
+                        <span class="text-xs text-gray-400">3,685 rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Emergency snow route road segments.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('How many snow routes by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
+                    </div>
+                </div>
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Tree Inventory</h4>
+                        <span class="text-xs text-gray-400">~55K rows</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">City trees with species, size, and neighborhood.</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Top species</button>
+                        <button onclick="setQuestion('How many trees by neighborhood?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Public Health -->
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Public Health (Research)</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-semibold text-gray-800 text-sm">Lead Testing</h4>
+                        <span class="text-xs text-gray-400">Census tract</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">Lead poisoning screening data by census tract (2013-2024).</p>
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="setQuestion('Lead testing results by census tract')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By tract</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Limitations & Transparency -->
+        <section class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+            <h2 class="text-lg font-bold text-blue-900 mb-3">Transparency & Limitations</h2>
+            <ul class="space-y-2 text-sm text-blue-800">
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    <span><strong>The AI only parses your question</strong> &mdash; it never sees or modifies the raw data. All computations are deterministic SQL.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    <span><strong>Results come from static CSV snapshots</strong>, not live city data. Datasets may be weeks or months behind.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    <span><strong>Crime data covers 2022 only</strong> (Part 1 offenses). Addresses are generalized to block level for privacy.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    <span><strong>Cross-dataset joins</strong> are supported between housing datasets (via ZIP/SBL) and crime + housing (via ZIP/neighborhood). Not all datasets can be cross-referenced.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                    <span><strong>Simple queries work best.</strong> COUNT, averages, and grouping are well-supported. Complex analytics (rankings, percentiles) require an API key.</span>
+                </li>
+            </ul>
+        </section>
+
         <!-- Query Input Section -->
-        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+        <section class="bg-white rounded-xl shadow-md p-6" id="querySection">
             <label for="question" class="block text-gray-700 font-semibold mb-2">
                 What would you like to know?
             </label>
@@ -96,25 +354,37 @@
                 </button>
             </div>
 
-            <!-- Example Queries -->
+            <!-- Example Queries by Category -->
             <div class="mt-4">
-                <p class="text-sm text-gray-500 mb-2">Try these examples:</p>
+                <p class="text-sm text-gray-500 mb-2">Quick examples:</p>
                 <div class="flex flex-wrap gap-2">
                     <button onclick="setQuestion('How many code violations are there?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
                         Total violations
                     </button>
                     <button onclick="setQuestion('Violations by neighborhood')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
-                        By neighborhood
+                        Violations by neighborhood
+                    </button>
+                    <button onclick="setQuestion('How many parking violations by type?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Parking violations
+                    </button>
+                    <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Cityline complaints
+                    </button>
+                    <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Tree species
+                    </button>
+                    <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Monday trash
+                    </button>
+                    <button onclick="setQuestion('Bike infrastructure by type')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                        Bike infra
                     </button>
                     <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
                         Rentals + violations
                     </button>
-                    <button onclick="setQuestion('How many violations are in vacant properties?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
-                        Vacant + violations
-                    </button>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Loading State -->
         <div id="loading" class="hidden">
@@ -258,7 +528,7 @@
     <!-- Footer -->
     <footer class="bg-gray-100 border-t mt-12">
         <div class="max-w-6xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
-            <p>Data source: Syracuse Open Data Portal</p>
+            <p>Data source: <a href="https://data.syr.gov" target="_blank" class="underline">Syracuse Open Data Portal</a></p>
             <p class="mt-1">LLM used only for query parsing, never accesses raw data</p>
         </div>
     </footer>
@@ -332,6 +602,8 @@
         // Set example question
         function setQuestion(q) {
             document.getElementById('question').value = q;
+            // Scroll to query section
+            document.getElementById('querySection').scrollIntoView({ behavior: 'smooth' });
             submitQuery();
         }
 
@@ -640,6 +912,30 @@
                     },
                     margin: { b: 120, l: 80, r: 40, t: 40 },
                     hoverlabel: { bgcolor: '#1d4ed8' }
+                }, { responsive: true });
+
+            } else if (chartData.type === 'line') {
+                const trace = {
+                    x: chartData.labels,
+                    y: chartData.values,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#F76900', width: 3 },
+                    marker: { size: 8, color: '#F76900' },
+                    hovertemplate: '%{x}<br>%{y:,}<extra></extra>'
+                };
+
+                Plotly.newPlot(container, [trace], {
+                    xaxis: {
+                        title: chartData.x_label,
+                        automargin: true
+                    },
+                    yaxis: {
+                        title: chartData.y_label,
+                        automargin: true
+                    },
+                    margin: { b: 80, l: 80, r: 40, t: 40 },
+                    hoverlabel: { bgcolor: '#F76900' }
                 }, { responsive: true });
             }
         }

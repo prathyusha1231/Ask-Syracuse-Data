@@ -33,6 +33,7 @@ templates = Jinja2Templates(directory="templates")
 # =============================================================================
 COLUMN_LABELS = {
     "count": "Total Count",
+    "count_distinct": "Unique Count",
     "zip": "ZIP Code",
     "sbl": "Property ID (SBL)",
     "neighborhood": "Neighborhood",
@@ -47,13 +48,73 @@ COLUMN_LABELS = {
     "arrest": "Arrest Made",
     "primary_count": "Primary Count",
     "secondary_count": "Secondary Count",
+    "year": "Year",
+    "month": "Month",
+    "quarter": "Quarter",
+    "avg_days_to_comply": "Avg Days to Comply",
+    "avg_days_open": "Avg Days Open",
+    "avg_cert_duration_days": "Avg Cert Duration (Days)",
+    "min_days_to_comply": "Min Days to Comply",
+    "max_days_to_comply": "Max Days to Comply",
+    "min_days_open": "Min Days Open",
+    "max_days_open": "Max Days Open",
+    # New dataset columns
+    "sanitation": "Collection Day",
+    "recyclingw": "Recycling Week",
+    "lpss": "Landmark Status",
+    "nr_eligible": "NR Eligible",
+    "prop_class_description": "Property Class",
+    "property_class": "Property Class Code",
+    "property_city": "City",
+    "total_assessment": "Total Assessment",
+    "avg_total_assessment": "Avg Assessment",
+    "min_total_assessment": "Min Assessment",
+    "max_total_assessment": "Max Assessment",
+    "category": "Category",
+    "agency_name": "Agency",
+    "infrastructure_type": "Infrastructure Type",
+    "trail_name": "Trail Name",
+    "length_mi": "Length (Miles)",
+    "sum_length_mi": "Total Miles",
+    "bike_suitability_19": "Suitability Rating",
+    "description": "Description",
+    "status": "Status",
+    "amount": "Amount",
+    "permit_type": "Permit Type",
+    "permit_number": "Permit Number",
+    "full_address": "Address",
+    "area": "Neighborhood",
+    "spp_com": "Species",
+    "dbh": "Diameter (DBH)",
+    "avg_dbh": "Avg Diameter (DBH)",
+    "streetname": "Street Name",
+    "ticket_number": "Ticket Number",
+    "location": "Location",
+    "census_tract": "Census Tract",
+    "address": "Address",
+    "vacant": "Vacant",
 }
+
+# Temporal group columns that indicate time-series data
+TEMPORAL_COLUMNS = {"year", "month", "quarter"}
 
 DATASET_LABELS = {
     "violations": "Code Violations",
     "rental_registry": "Rental Properties",
     "vacant_properties": "Vacant Properties",
     "crime_2022": "Crimes (2022)",
+    "unfit_properties": "Unfit Properties",
+    "trash_pickup": "Trash Pickup",
+    "historical_properties": "Historical Properties",
+    "assessment_roll": "Assessment Roll",
+    "cityline_requests": "SYRCityline Requests",
+    "snow_routes": "Snow Routes",
+    "bike_suitability": "Bike Suitability",
+    "bike_infrastructure": "Bike Infrastructure",
+    "parking_violations": "Parking Violations",
+    "permit_requests": "Permit Requests",
+    "tree_inventory": "Tree Inventory",
+    "lead_testing": "Lead Testing",
 }
 
 
@@ -89,10 +150,27 @@ def format_value(val):
     return str(val)
 
 
+def _safe_list(series) -> list:
+    """Convert a pandas Series to a JSON-safe list (replace NA with None/0)."""
+    result = []
+    for v in series:
+        if pd.isna(v):
+            result.append(None)
+        elif hasattr(v, 'item'):  # numpy scalar
+            result.append(v.item())
+        else:
+            result.append(v)
+    return result
+
+
 def generate_description(df: pd.DataFrame, metadata: dict) -> str:
     """Generate result description."""
     query_type = metadata.get("query_type", "single")
     row_count = metadata.get("row_count", len(df))
+    metric = metadata.get("metric", "count")
+
+    if query_type == "advanced_sql":
+        return f"Advanced query result: {row_count} rows returned."
 
     if query_type == "join":
         primary = DATASET_LABELS.get(metadata.get("primary_dataset", ""), "primary")
@@ -108,18 +186,45 @@ def generate_description(df: pd.DataFrame, metadata: dict) -> str:
                 count_val = df["count"].iloc[0]
                 return f"Property-level match: {primary} and {secondary}. Found {count_val:,} matching records."
             return f"Property-level match between {primary} and {secondary}. Found {row_count} records."
-    else:
-        dataset = DATASET_LABELS.get(metadata.get("dataset", ""), "dataset")
-        group_by = metadata.get("group_by")
 
-        if group_by:
-            group_label = COLUMN_LABELS.get(group_by, group_by.replace("_", " ").title())
-            return f"{dataset} grouped by {group_label}. Found {row_count} groups."
-        else:
-            if row_count == 1 and "count" in df.columns:
-                count_val = df["count"].iloc[0]
-                return f"Total {dataset}: {count_val:,} records"
-            return f"{dataset}: {row_count} records"
+    # Single-dataset queries
+    dataset = DATASET_LABELS.get(metadata.get("dataset", ""), "dataset")
+    group_by = metadata.get("group_by")
+
+    # Metric label
+    metric_desc = ""
+    if metric == "count_distinct":
+        metric_desc = "unique count of"
+    elif metric in ("avg", "min", "max", "sum"):
+        metric_col = metadata.get("metric_column", "")
+        col_label = COLUMN_LABELS.get(f"{metric}_{metric_col}", metric_col.replace("_", " "))
+        metric_desc = f"{col_label} for"
+
+    if group_by:
+        # group_by may be a comma-separated string or a single value
+        group_label = ", ".join(
+            COLUMN_LABELS.get(g.strip(), g.strip().replace("_", " ").title())
+            for g in str(group_by).split(", ")
+        )
+        if metric_desc:
+            return f"{metric_desc} {dataset} grouped by {group_label}. Found {row_count} groups."
+        return f"{dataset} grouped by {group_label}. Found {row_count} groups."
+    else:
+        # Ungrouped total
+        count_col = "count"
+        if metric == "count_distinct":
+            count_col = "count_distinct"
+        elif metric in ("avg", "min", "max", "sum"):
+            metric_col = metadata.get("metric_column", "")
+            count_col = f"{metric}_{metric_col}"
+
+        if row_count == 1 and count_col in df.columns:
+            val = df[count_col].iloc[0]
+            if isinstance(val, (int, float)):
+                if float(val).is_integer():
+                    return f"Total {dataset}: {int(val):,} {'unique records' if metric == 'count_distinct' else 'records'}"
+                return f"{metric_desc} {dataset}: {val:,.2f}" if metric_desc else f"Total {dataset}: {val:,.2f}"
+        return f"{dataset}: {row_count} records"
 
 
 def generate_insights(df: pd.DataFrame, metadata: dict, question: str) -> str | None:
@@ -221,6 +326,139 @@ DATA_CITATIONS = {
             "Under-reporting varies by crime type",
         ],
     },
+    "unfit_properties": {
+        "name": "Unfit Properties",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/unfit-properties",
+        "date_range": "Current listings",
+        "update_frequency": "Periodic",
+        "caveats": [
+            "Properties declared unfit for human habitation",
+            "Status may change after listing",
+        ],
+    },
+    "trash_pickup": {
+        "name": "Trash Pickup Schedule 2025",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/trash-pickup",
+        "date_range": "2025 schedule",
+        "update_frequency": "Annual",
+        "caveats": [
+            "Schedule data only, not collection performance",
+            "Holiday adjustments not reflected",
+        ],
+    },
+    "historical_properties": {
+        "name": "Historical Properties",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/historical-properties",
+        "date_range": "Current listings",
+        "update_frequency": "Periodic",
+        "caveats": [
+            "Includes both designated landmarks and potentially eligible properties",
+            "Eligibility status may not reflect current conditions",
+        ],
+    },
+    "assessment_roll": {
+        "name": "Assessment Roll 2026",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/assessment-roll",
+        "date_range": "2026 assessment year",
+        "update_frequency": "Annual",
+        "caveats": [
+            "Assessed values may differ from market values",
+            "Exemptions reduce taxable value but not assessment",
+        ],
+    },
+    "cityline_requests": {
+        "name": "SYRCityline Service Requests",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/syrcityline-requests",
+        "date_range": "Multi-year",
+        "update_frequency": "Daily",
+        "caveats": [
+            "Reflects reported requests, not all city issues",
+            "Response times may not reflect resolution quality",
+        ],
+    },
+    "snow_routes": {
+        "name": "Emergency Snow Routes",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/emergency-snow-routes",
+        "date_range": "Current routes",
+        "update_frequency": "Periodic",
+        "caveats": [
+            "Road segment data, not event/plow tracking",
+            "Routes may change seasonally",
+        ],
+    },
+    "bike_suitability": {
+        "name": "Bike Suitability 2020",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/bike-suitability",
+        "date_range": "2020 assessment",
+        "update_frequency": "Static",
+        "caveats": [
+            "Ratings from 2020, road conditions may have changed",
+            "Does not account for seasonal conditions",
+        ],
+    },
+    "bike_infrastructure": {
+        "name": "Bike Infrastructure 2023",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/bike-infrastructure",
+        "date_range": "2023",
+        "update_frequency": "Annual",
+        "caveats": [
+            "Only includes officially mapped infrastructure",
+            "Condition/maintenance not tracked",
+        ],
+    },
+    "parking_violations": {
+        "name": "Parking Violations 2023",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/parking-violations",
+        "date_range": "2023",
+        "update_frequency": "Static (annual)",
+        "caveats": [
+            "Reflects issued tickets, not all parking violations",
+            "Fine amounts are initial, not adjusted for appeals",
+        ],
+    },
+    "permit_requests": {
+        "name": "Permit Requests",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/permit-requests",
+        "date_range": "Multi-year",
+        "update_frequency": "Daily",
+        "caveats": [
+            "Reflects permit applications, not completion",
+            "Some permits may be denied or withdrawn",
+        ],
+    },
+    "tree_inventory": {
+        "name": "Tree Inventory",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/tree-inventory",
+        "date_range": "Current inventory",
+        "update_frequency": "Periodic",
+        "caveats": [
+            "Covers city-managed trees, not private trees",
+            "Tree health/condition not always current",
+        ],
+    },
+    "lead_testing": {
+        "name": "Lead Testing (2013-2024)",
+        "source": "Syracuse Open Data Portal",
+        "url": "https://data.syr.gov/datasets/lead-testing",
+        "date_range": "2013-2024",
+        "update_frequency": "Annual",
+        "caveats": [
+            "Census-tract level data, not individual addresses",
+            "Screening rates vary by tract and year",
+            "Research dataset - interpret with caution",
+        ],
+    },
 }
 
 
@@ -315,12 +553,13 @@ async def query_data(req: QueryRequest):
     chart_data = None
     if len(df) >= 2:
         raw_columns = list(df.columns)
-        count_cols = ["count", "primary_count", "secondary_count"]
+        numeric_col_names = {"count", "count_distinct", "primary_count", "secondary_count"}
+        # Also match avg_*, min_*, max_*, sum_* columns
         category_col = None
         value_cols = []
 
         for col in raw_columns:
-            if col.lower() in count_cols:
+            if col.lower() in numeric_col_names or col.startswith(("avg_", "min_", "max_", "sum_")):
                 value_cols.append(col)
             elif category_col is None:
                 category_col = col
@@ -328,29 +567,46 @@ async def query_data(req: QueryRequest):
         if category_col and value_cols:
             chart_df = df.head(15)
 
-            if metadata.get("query_type") == "join" and metadata.get("join_type") in ("zip", "neighborhood") and len(value_cols) >= 2:
-                # Grouped bar chart data
+            # Determine chart type
+            is_temporal = category_col in TEMPORAL_COLUMNS
+            is_join_grouped = (
+                metadata.get("query_type") == "join"
+                and metadata.get("join_type") in ("zip", "neighborhood")
+                and len(value_cols) >= 2
+            )
+
+            if is_join_grouped:
+                # Grouped bar chart for cross-dataset comparisons
                 chart_data = {
                     "type": "grouped_bar",
-                    "labels": chart_df[category_col].tolist(),
+                    "labels": _safe_list(chart_df[category_col]),
                     "datasets": [
                         {
                             "label": DATASET_LABELS.get(metadata.get("primary_dataset", ""), "Primary"),
-                            "data": chart_df[value_cols[0]].tolist(),
+                            "data": _safe_list(chart_df[value_cols[0]]),
                         },
                         {
                             "label": DATASET_LABELS.get(metadata.get("secondary_dataset", ""), "Secondary"),
-                            "data": chart_df[value_cols[1]].tolist() if len(value_cols) > 1 else [],
+                            "data": _safe_list(chart_df[value_cols[1]]) if len(value_cols) > 1 else [],
                         }
                     ],
                     "x_label": get_readable_column(category_col, metadata),
                 }
+            elif is_temporal:
+                # Line chart for temporal data
+                chart_data = {
+                    "type": "line",
+                    "labels": [str(v) if not pd.isna(v) else "Unknown" for v in chart_df[category_col]],
+                    "values": _safe_list(chart_df[value_cols[0]]),
+                    "x_label": get_readable_column(category_col, metadata),
+                    "y_label": get_readable_column(value_cols[0], metadata),
+                }
             else:
-                # Simple bar chart data
+                # Simple bar chart
                 chart_data = {
                     "type": "bar",
-                    "labels": chart_df[category_col].tolist(),
-                    "values": chart_df[value_cols[0]].tolist(),
+                    "labels": _safe_list(chart_df[category_col]),
+                    "values": _safe_list(chart_df[value_cols[0]]),
                     "x_label": get_readable_column(category_col, metadata),
                     "y_label": get_readable_column(value_cols[0], metadata),
                 }
@@ -363,7 +619,11 @@ async def query_data(req: QueryRequest):
 
     # Get citations based on datasets used
     citations = []
-    if metadata.get("query_type") == "join":
+    if metadata.get("query_type") == "advanced_sql":
+        # Advanced SQL may use any/all tables — cite all
+        for ds in DATA_CITATIONS:
+            citations.append(get_citation_text(ds))
+    elif metadata.get("query_type") == "join":
         primary = metadata.get("primary_dataset")
         secondary = metadata.get("secondary_dataset")
         if primary:

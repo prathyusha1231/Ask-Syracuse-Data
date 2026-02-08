@@ -52,4 +52,30 @@ def make_openai_intent_llm(model: str = "gpt-4o-mini") -> Callable[[str], str]:
     return _llm
 
 
-__all__ = ["make_openai_intent_llm", "load_api_key"]
+def make_openai_sql_llm(model: str = "gpt-4o-mini") -> Callable[[str], str]:
+    """
+    Return a callable(prompt) -> SQL string using OpenAI Chat Completions.
+    Unlike the intent LLM, this does NOT enforce JSON response format.
+    """
+    api_key = load_api_key()
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY not set (env or .env).")
+
+    client = OpenAI(api_key=api_key)
+
+    def _llm(prompt: str) -> str:
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a SQL query generator. Return only valid DuckDB SQL. No explanations."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=500,
+        )
+        return completion.choices[0].message.content
+
+    return _llm
+
+
+__all__ = ["make_openai_intent_llm", "make_openai_sql_llm", "load_api_key"]

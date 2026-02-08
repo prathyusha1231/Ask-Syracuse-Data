@@ -89,6 +89,15 @@ def detect_framing_bias(question: str, intent: Dict[str, Any]) -> BiasDetectionR
     return result
 
 
+def _normalize_group_by(group_by) -> list:
+    """Normalize group_by to a flat list of strings."""
+    if group_by is None:
+        return []
+    if isinstance(group_by, list):
+        return group_by
+    return [group_by]
+
+
 def detect_normalization_bias(
     result_df: pd.DataFrame,
     intent: Dict[str, Any],
@@ -99,13 +108,16 @@ def detect_normalization_bias(
     """
     result = BiasDetectionResult()
 
-    group_by = intent.get("group_by")
+    group_by_list = _normalize_group_by(intent.get("group_by"))
 
     # Neighborhood comparisons need population context
-    if group_by in ["neighborhood", "zip", "complaint_zip"]:
+    geo_groups = {"neighborhood", "zip", "complaint_zip"}
+    geo_matches = [g for g in group_by_list if g in geo_groups]
+    if geo_matches:
+        label = ", ".join(geo_matches)
         result.add(
             "normalization",
-            f"Raw counts by {group_by} may not account for population differences. Higher counts may reflect larger populations, not higher rates.",
+            f"Raw counts by {label} may not account for population differences. Higher counts may reflect larger populations, not higher rates.",
             "warning"
         )
 
@@ -177,10 +189,10 @@ def detect_missing_context(
     result = BiasDetectionResult()
 
     row_count = metadata.get("row_count", len(result_df) if result_df is not None else 0)
-    group_by = intent.get("group_by")
+    group_by_list = _normalize_group_by(intent.get("group_by"))
 
     # Small sample warning
-    if row_count < 5 and group_by:
+    if row_count < 5 and group_by_list:
         result.add(
             "context",
             f"Only {row_count} groups returned. Small samples may not be representative.",
@@ -188,7 +200,7 @@ def detect_missing_context(
         )
 
     # No grouping on count query
-    if not group_by and metadata.get("query_type") != "join":
+    if not group_by_list and metadata.get("query_type") != "join":
         result.add(
             "context",
             "Total count provides limited insight. Consider grouping by neighborhood or time period for more actionable analysis.",
@@ -221,18 +233,19 @@ def detect_uncertainty(
         return result
 
     # Check for null/unknown values in results
-    group_by = intent.get("group_by")
-    if group_by and group_by in result_df.columns:
-        null_count = result_df[group_by].isna().sum()
-        unknown_count = (result_df[group_by].astype(str).str.lower() == "unknown").sum()
-        total_unknown = null_count + unknown_count
+    group_by_list = _normalize_group_by(intent.get("group_by"))
+    for gb_col in group_by_list:
+        if gb_col in result_df.columns:
+            null_count = result_df[gb_col].isna().sum()
+            unknown_count = (result_df[gb_col].astype(str).str.lower() == "unknown").sum()
+            total_unknown = null_count + unknown_count
 
-        if total_unknown > 0:
-            result.add(
-                "uncertainty",
-                f"{total_unknown} records have unknown/missing {group_by} values and are grouped separately.",
-                "info"
-            )
+            if total_unknown > 0:
+                result.add(
+                    "uncertainty",
+                    f"{total_unknown} records have unknown/missing {gb_col} values and are grouped separately.",
+                    "info"
+                )
 
     # Large result sets have sampling considerations
     if "count" in result_df.columns:

@@ -15,10 +15,24 @@ from .data_utils import (
     load_rental_registry,
     load_vacant_properties,
     load_crime_2022,
+    load_unfit_properties,
+    load_trash_pickup,
+    load_historical_properties,
+    load_assessment_roll,
+    load_cityline_requests,
+    load_snow_routes,
+    load_bike_suitability,
+    load_bike_infrastructure,
+    load_parking_violations,
+    load_permit_requests,
+    load_tree_inventory,
+    load_lead_testing,
 )
 from llm.intent_parser import parse_intent
-from llm.openai_client import make_openai_intent_llm, load_api_key
+from llm.openai_client import make_openai_intent_llm, make_openai_sql_llm, load_api_key
+from llm.prompt_templates import NL_TO_SQL_PROMPT
 from .sql_builder import build_select_sql, build_join_sql
+from .sql_validator import validate_sql, SQLValidationError
 from .validation import (
     validate_count_result,
     validate_join_result,
@@ -33,10 +47,36 @@ LOADERS = {
     "vacant_properties": load_vacant_properties,
     "crime_2022": load_crime_2022,
     "rental_registry": load_rental_registry,
+    "unfit_properties": load_unfit_properties,
+    "trash_pickup": load_trash_pickup,
+    "historical_properties": load_historical_properties,
+    "assessment_roll": load_assessment_roll,
+    "cityline_requests": load_cityline_requests,
+    "snow_routes": load_snow_routes,
+    "bike_suitability": load_bike_suitability,
+    "bike_infrastructure": load_bike_infrastructure,
+    "parking_violations": load_parking_violations,
+    "permit_requests": load_permit_requests,
+    "tree_inventory": load_tree_inventory,
+    "lead_testing": load_lead_testing,
 }
 
 # Cache for loaded dataframes (for validation)
 _df_cache = {}
+
+
+def _make_error_response(error: str, **kwargs) -> dict:
+    """Create a standard error response dict."""
+    return {
+        "result": kwargs.get("result"),
+        "intent": kwargs.get("intent"),
+        "metadata": kwargs.get("metadata", {}),
+        "sql": kwargs.get("sql"),
+        "error": error,
+        "limitations": kwargs.get("limitations", ""),
+        "validation": kwargs.get("validation"),
+        "bias_warnings": kwargs.get("bias_warnings", []),
+    }
 
 
 def run_query(question: str) -> dict:
@@ -47,37 +87,19 @@ def run_query(question: str) -> dict:
         try:
             llm_fn = make_openai_intent_llm()
         except Exception as exc:  # noqa: BLE001
-            return {
-                "result": None,
-                "intent": None,
-                "metadata": {},
-                "sql": None,
-                "error": f"Unable to initialize LLM client: {exc}",
-                "limitations": "",
-                "validation": None,
-                "bias_warnings": [],
-            }
+            return _make_error_response(f"Unable to initialize LLM client: {exc}")
 
     raw_intent = None
     try:
         raw_intent = parse_intent(question, llm=llm_fn)
     except Exception as exc:  # noqa: BLE001
         note = " (GPT disabled; set OPENAI_API_KEY to enable)" if llm_fn is None else ""
-        return {
-            "result": None,
-            "intent": raw_intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"Unable to parse intent: {exc}{note}",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(f"Unable to parse intent: {exc}{note}", intent=raw_intent)
 
-    # Determine if this is a join query or single-dataset query
-    is_join = raw_intent.get("query_type") == "join"
-
-    if is_join:
+    # Route to the appropriate query handler
+    if raw_intent.get("query_path") == "advanced_sql":
+        response = _run_advanced_query(raw_intent["question"])
+    elif raw_intent.get("query_type") == "join":
         response = _run_join_query(raw_intent)
     else:
         response = _run_single_query(raw_intent)
@@ -95,36 +117,29 @@ def run_query(question: str) -> dict:
     return response
 
 
+def _group_by_for_metadata(group_by) -> str | None:
+    """Convert group_by (list or None) to display-friendly string for metadata."""
+    if group_by is None:
+        return None
+    if isinstance(group_by, list):
+        return group_by[0] if len(group_by) == 1 else ", ".join(group_by)
+    return group_by
+
+
 def _run_single_query(raw_intent: dict) -> dict:
     """Execute a single-dataset query with validation."""
     try:
         intent = schema.validate_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
-        return {
-            "result": None,
-            "intent": raw_intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"Validation failed: {exc}",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(f"Validation failed: {exc}", intent=raw_intent)
 
     dataset = intent["dataset"]
     cfg = schema.get_dataset_config(dataset)
     loader = LOADERS.get(dataset)
     if not loader:
-        return {
-            "result": None,
-            "intent": intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"No loader found for dataset '{dataset}'.",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(
+            f"No loader found for dataset '{dataset}'.", intent=intent
+        )
 
     try:
         # Load data (cache for validation)
@@ -137,16 +152,12 @@ def _run_single_query(raw_intent: dict) -> dict:
         sql = build_select_sql(intent, cfg)
         result_df = conn.execute(sql).df()
     except Exception as exc:  # noqa: BLE001
-        return {
-            "result": None,
-            "intent": intent,
-            "metadata": {"intent": intent},
-            "sql": sql if "sql" in locals() else None,
-            "error": f"Failed to execute SQL: {exc}",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(
+            f"Failed to execute SQL: {exc}",
+            intent=intent,
+            metadata={"intent": intent},
+            sql=sql if "sql" in locals() else None,
+        )
 
     limitations = (
         "Static CSV snapshots only; DuckDB queries are deterministic. "
@@ -157,8 +168,11 @@ def _run_single_query(raw_intent: dict) -> dict:
         "query_type": "single",
         "dataset": dataset,
         "filters": intent.get("filters") or {},
-        "group_by": intent.get("group_by"),
-        "metric": intent.get("metric"),
+        "group_by": _group_by_for_metadata(intent.get("group_by")),
+        "metric": intent.get("metric", "count"),
+        "metric_column": intent.get("metric_column"),
+        "distinct_column": intent.get("distinct_column"),
+        "having": intent.get("having"),
         "limit": intent.get("limit"),
         "row_count": len(result_df),
     }
@@ -185,16 +199,7 @@ def _run_join_query(raw_intent: dict) -> dict:
     try:
         intent = schema.validate_join_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
-        return {
-            "result": None,
-            "intent": raw_intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"Join validation failed: {exc}",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(f"Join validation failed: {exc}", intent=raw_intent)
 
     primary = intent["primary_dataset"]
     secondary = intent["secondary_dataset"]
@@ -208,16 +213,7 @@ def _run_join_query(raw_intent: dict) -> dict:
     try:
         join_info = schema.get_join_config(primary, secondary)
     except Exception as exc:  # noqa: BLE001
-        return {
-            "result": None,
-            "intent": intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"Join config error: {exc}",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(f"Join config error: {exc}", intent=intent)
 
     # Find the correct join key config
     join_config = join_info["config"]
@@ -226,16 +222,9 @@ def _run_join_query(raw_intent: dict) -> dict:
         None
     )
     if not join_key_config:
-        return {
-            "result": None,
-            "intent": intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"Join type '{join_type}' not found in config.",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(
+            f"Join type '{join_type}' not found in config.", intent=intent
+        )
 
     # Adjust key order if join was defined in reverse
     if join_info["order"] == "reversed":
@@ -249,16 +238,9 @@ def _run_join_query(raw_intent: dict) -> dict:
     primary_loader = LOADERS.get(primary)
     secondary_loader = LOADERS.get(secondary)
     if not primary_loader or not secondary_loader:
-        return {
-            "result": None,
-            "intent": intent,
-            "metadata": {},
-            "sql": None,
-            "error": f"Missing loader for '{primary}' or '{secondary}'.",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(
+            f"Missing loader for '{primary}' or '{secondary}'.", intent=intent
+        )
 
     try:
         # Load data (cache for validation)
@@ -277,16 +259,11 @@ def _run_join_query(raw_intent: dict) -> dict:
         sql = build_join_sql(intent, primary_cfg, secondary_cfg, join_key_config)
         result_df = conn.execute(sql).df()
     except Exception as exc:  # noqa: BLE001
-        return {
-            "result": None,
-            "intent": intent,
-            "metadata": {},
-            "sql": sql if "sql" in locals() else None,
-            "error": f"Failed to execute join SQL: {exc}",
-            "limitations": "",
-            "validation": None,
-            "bias_warnings": [],
-        }
+        return _make_error_response(
+            f"Failed to execute join SQL: {exc}",
+            intent=intent,
+            sql=sql if "sql" in locals() else None,
+        )
 
     limitations = (
         f"Cross-dataset join via {join_type}. Static CSV snapshots only. "
@@ -302,7 +279,7 @@ def _run_join_query(raw_intent: dict) -> dict:
         "join_description": join_config.get("description", ""),
         "filters": intent.get("filters") or {},
         "group_by": intent.get("group_by"),
-        "metric": intent.get("metric"),
+        "metric": intent.get("metric", "count"),
         "limit": intent.get("limit"),
         "row_count": len(result_df),
     }
@@ -322,6 +299,68 @@ def _run_join_query(raw_intent: dict) -> dict:
         "sql": sql,
         "error": None,
         "validation": validation.to_dict(),
+        "bias_warnings": [],
+    }
+
+
+def _run_advanced_query(question: str) -> dict:
+    """Execute a complex query using LLM-generated SQL with guardrails."""
+    api_key = load_api_key()
+    if not api_key:
+        return _make_error_response(
+            "Advanced SQL queries require an API key. Set OPENAI_API_KEY in .env."
+        )
+
+    # Generate SQL via LLM
+    try:
+        sql_llm = make_openai_sql_llm()
+        prompt = NL_TO_SQL_PROMPT.format(question=question)
+        raw_sql = sql_llm(prompt)
+    except Exception as exc:  # noqa: BLE001
+        return _make_error_response(f"Failed to generate SQL: {exc}")
+
+    # Validate and sanitize SQL
+    try:
+        sql = validate_sql(raw_sql)
+    except SQLValidationError as exc:
+        return _make_error_response(
+            f"Generated SQL failed safety checks: {exc}",
+            sql=raw_sql,
+        )
+
+    # Load all tables and execute
+    try:
+        conn = duckdb.connect(database=":memory:")
+        for name, loader in LOADERS.items():
+            if name not in _df_cache:
+                _df_cache[name] = loader()
+            conn.register(name, _df_cache[name])
+
+        result_df = conn.execute(sql).df()
+    except Exception as exc:  # noqa: BLE001
+        return _make_error_response(
+            f"Failed to execute advanced SQL: {exc}", sql=sql
+        )
+
+    metadata = {
+        "query_type": "advanced_sql",
+        "row_count": len(result_df),
+    }
+
+    limitations = (
+        "This query was generated by an LLM and executed via DuckDB. "
+        "Results should be independently verified. "
+        "Static CSV snapshots only."
+    )
+
+    return {
+        "result": result_df,
+        "intent": {"query_path": "advanced_sql", "question": question},
+        "metadata": metadata,
+        "limitations": limitations,
+        "sql": sql,
+        "error": None,
+        "validation": {"passed": True, "warnings": ["LLM-generated SQL — no ground-truth validation"], "errors": [], "ground_truth": {}},
         "bias_warnings": [],
     }
 

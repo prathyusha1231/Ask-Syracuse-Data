@@ -150,9 +150,9 @@ def _assign_zip_from_coords(df: pd.DataFrame, lat_col: str = "latitude", lon_col
     coords = np.column_stack([lats, lons])  # (N, 2)
     dists = np.sqrt(((coords[:, np.newaxis, :] - centroids[np.newaxis, :, :]) ** 2).sum(axis=2))
     nearest = dists.argmin(axis=1)
-    assigned = [zips[i] for i in nearest]
+    assigned = [int(zips[i]) for i in nearest]
 
-    df["zip"] = np.nan
+    df["zip"] = pd.array([pd.NA] * len(df), dtype=pd.Int64Dtype())
     df.loc[has_coords, "zip"] = assigned
     return df
 
@@ -222,9 +222,185 @@ def load_crime_2022() -> pd.DataFrame:
     return df
 
 
+def _parse_epoch_ms(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
+    """Parse epoch-millisecond timestamps to datetime."""
+    df = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], unit="ms", errors="coerce")
+    return df
+
+
+def load_unfit_properties() -> pd.DataFrame:
+    """Load unfit properties; epoch-ms dates, SBL normalized."""
+    path = DATA_DIR / "Unfit_Properties.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    df = _parse_epoch_ms(df, ["violation_date", "comply_by_date", "status_date", "comp_open_date", "comp_close_date"])
+    df = _normalize_sbl(df)
+    return df
+
+
+def load_trash_pickup() -> pd.DataFrame:
+    """Load trash pickup schedule data."""
+    path = DATA_DIR / "Trash_Pickup_2025.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    df = _normalize_sbl(df)
+    # Normalize zip to Int64
+    if "zip" in df.columns:
+        df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
+    return df
+
+
+def load_historical_properties() -> pd.DataFrame:
+    """Load historical properties with landmark/NR eligibility data."""
+    path = DATA_DIR / "Historical_Properties.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    df = _normalize_sbl(df)
+    if "zip" in df.columns:
+        df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
+    return df
+
+
+def load_assessment_roll() -> pd.DataFrame:
+    """Load assessment roll with property values and classifications."""
+    path = DATA_DIR / "Assessment_Roll_2026.csv"
+    df = pd.read_csv(path, low_memory=False)
+    df = _clean_columns(df)
+    df = _normalize_sbl(df)
+    if "total_assessment" in df.columns:
+        df["total_assessment"] = pd.to_numeric(df["total_assessment"], errors="coerce")
+    return df
+
+
+def load_cityline_requests() -> pd.DataFrame:
+    """Load SYRCityline 311 service requests; derive ZIP from lat/long."""
+    path = DATA_DIR / "SYRCityline_Requests.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    # Parse dates with known format: "01/14/2025 - 11:19AM"
+    for col in ["created_at_local", "closed_at_local"]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], format="%m/%d/%Y - %I:%M%p", errors="coerce")
+    if "lat" in df.columns and "lng" in df.columns:
+        df = df.rename(columns={"lat": "latitude", "lng": "longitude"})
+        df = _assign_zip_from_coords(df)
+    return df
+
+
+def load_snow_routes() -> pd.DataFrame:
+    """Load emergency snow route road segments; normalize ZIP from postal columns."""
+    path = DATA_DIR / "Emergency_Snow_Routes.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    # Normalize left/right postal codes into a single zip column
+    if "leftpostal" in df.columns:
+        df["zip"] = pd.to_numeric(df["leftpostal"], errors="coerce").astype(pd.Int64Dtype())
+    return df
+
+
+def load_bike_suitability() -> pd.DataFrame:
+    """Load bike suitability ratings by road."""
+    path = DATA_DIR / "Bike_Suitability_2020.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    return df
+
+
+def load_bike_infrastructure() -> pd.DataFrame:
+    """Load bike infrastructure (trails, lanes, paths)."""
+    path = DATA_DIR / "Bike_Infrastructure_2023.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    if "length_mi" in df.columns:
+        df["length_mi"] = pd.to_numeric(df["length_mi"], errors="coerce")
+    return df
+
+
+def load_parking_violations() -> pd.DataFrame:
+    """Load parking violations; epoch-ms dates, derive ZIP from lat/long."""
+    path = DATA_DIR / "Parking_Violations_2023.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    df = _parse_epoch_ms(df, ["issued_date"])
+    # Rename coordinate columns for _assign_zip_from_coords
+    if "lat" in df.columns and "long" in df.columns:
+        df = df.rename(columns={"lat": "latitude", "long": "longitude"})
+        df = _assign_zip_from_coords(df)
+    return df
+
+
+def load_permit_requests() -> pd.DataFrame:
+    """Load permit requests; epoch-ms dates, derive ZIP from lat/long."""
+    path = DATA_DIR / "Permit_Requests.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    df = _parse_epoch_ms(df, ["issue_date"])
+    if "lat" in df.columns and "long" in df.columns:
+        df = df.rename(columns={"lat": "latitude", "long": "longitude"})
+        df = _assign_zip_from_coords(df)
+    elif "latitude" in df.columns and "longitude" in df.columns:
+        df = _assign_zip_from_coords(df)
+    return df
+
+
+def load_tree_inventory() -> pd.DataFrame:
+    """Load tree inventory; derive ZIP from lat/long."""
+    path = DATA_DIR / "Tree_Inventory.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    if "latitude" in df.columns and "longitude" in df.columns:
+        df = _assign_zip_from_coords(df)
+    return df
+
+
+def load_lead_testing() -> pd.DataFrame:
+    """Load lead testing data from Excel files (2013-2019 + 2020-2024).
+    Files have 3 header rows; real headers at row 3. Data is wide format
+    (census_tract x year columns) which we melt to long format.
+    """
+    frames = []
+    for fname in ["Lead_Testing_2013_2019.xlsx", "Lead_Testing_2020_2024.xlsx"]:
+        path = DATA_DIR / fname
+        if path.exists():
+            xls = pd.read_excel(path, engine="openpyxl", header=3)
+            xls = _clean_columns(xls)
+            # Rename first column to census_tract
+            first_col = xls.columns[0]
+            xls = xls.rename(columns={first_col: "census_tract"})
+            xls = xls.dropna(subset=["census_tract"])
+            # Melt year columns to long format
+            year_cols = [c for c in xls.columns if c != "census_tract"]
+            melted = xls.melt(id_vars=["census_tract"], value_vars=year_cols,
+                              var_name="year", value_name="pct_elevated")
+            melted["year"] = pd.to_numeric(melted["year"], errors="coerce").astype(pd.Int64Dtype())
+            # Convert pct_elevated: "Suppressed" -> NaN, otherwise numeric
+            melted["pct_elevated"] = pd.to_numeric(melted["pct_elevated"], errors="coerce")
+            frames.append(melted)
+    if not frames:
+        raise FileNotFoundError("No lead testing Excel files found.")
+    df = pd.concat(frames, ignore_index=True)
+    df["census_tract"] = df["census_tract"].astype(str).str.strip()
+    return df
+
+
 __all__ = [
     "load_code_violations",
     "load_rental_registry",
     "load_vacant_properties",
     "load_crime_2022",
+    "load_unfit_properties",
+    "load_trash_pickup",
+    "load_historical_properties",
+    "load_assessment_roll",
+    "load_cityline_requests",
+    "load_snow_routes",
+    "load_bike_suitability",
+    "load_bike_infrastructure",
+    "load_parking_violations",
+    "load_permit_requests",
+    "load_tree_inventory",
+    "load_lead_testing",
 ]
