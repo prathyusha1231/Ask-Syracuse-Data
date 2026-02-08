@@ -6,7 +6,8 @@ Deploy: Render, Vercel, or Fly.io
 from __future__ import annotations
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field
 from pathlib import Path
@@ -57,7 +58,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Templates
+# Static files & Templates
+_BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory="templates")
 
 # Feedback database
@@ -191,6 +193,22 @@ DATASETS_WITH_COORDS = {
 ZIP_GROUP_COLUMNS = {"zip", "complaint_zip"}
 NEIGHBORHOOD_GROUP_COLUMNS = {"neighborhood", "area"}
 
+# Mapping of Syracuse ZIP codes to their primary neighborhoods
+ZIP_TO_NEIGHBORHOODS = {
+    "13202": "Downtown, University Hill",
+    "13203": "Northside, Hawley Green, Lincoln Hill",
+    "13204": "Near Westside, Far Westside, Tipperary Hill, Skunk City",
+    "13205": "Southside, South Valley, Elmwood, Brighton",
+    "13206": "Eastside, Meadowbrook, Salt Springs",
+    "13207": "South Valley, Strathmore, Winkworth",
+    "13208": "Northside, Sedgwick, Court-Woodlawn, Prospect Hill",
+    "13210": "University Neighborhood, Outer Comstock",
+    "13214": "Westside",
+    "13215": "South Valley",
+    "13219": "Far Westside, Lakefront",
+    "13224": "Eastside, Meadowbrook",
+}
+
 TRASH_DAY_COLORS = {
     "Monday": "#2563eb",
     "Tuesday": "#16a34a",
@@ -248,22 +266,32 @@ def get_readable_column(col: str, metadata: dict = None) -> str:
     return COLUMN_LABELS.get(col, col.replace("_", " ").title())
 
 
+def _is_numeric(val) -> bool:
+    """Check if value is numeric (int, float, or numpy numeric)."""
+    if isinstance(val, (int, float)):
+        return True
+    return hasattr(val, 'item') and not isinstance(val, (str, bytes))
+
+
 def format_number(val):
     """Format numbers with commas."""
     if pd.isna(val):
         return val
-    if isinstance(val, (int, float)):
+    if _is_numeric(val):
         if float(val).is_integer():
             return f"{int(val):,}"
         return f"{val:,.2f}"
     return val
 
 
-def format_value(val):
+def format_value(val, column_name: str = ""):
     """Format any value, handling nulls and empty strings."""
     if pd.isna(val) or val == "" or val is None:
         return "Unknown"
-    if isinstance(val, (int, float)):
+    # ZIP columns should display as plain strings (e.g. "13202", not "13,202")
+    if column_name in ZIP_GROUP_COLUMNS and _is_numeric(val):
+        return str(int(val))
+    if _is_numeric(val):
         return format_number(val)
     return str(val)
 
@@ -362,10 +390,20 @@ def generate_insights(df: pd.DataFrame, metadata: dict, question: str) -> str | 
         else:
             context = f"Dataset: {metadata.get('dataset')}"
 
+        # Add ZIP-to-neighborhood context when results are grouped by ZIP
+        zip_context = ""
+        group_by = metadata.get("group_by", [])
+        if isinstance(group_by, str):
+            group_by = [group_by]
+        has_zip_group = any(g in ZIP_GROUP_COLUMNS for g in group_by)
+        if has_zip_group:
+            zip_lines = [f"  {z}: {n}" for z, n in ZIP_TO_NEIGHBORHOODS.items()]
+            zip_context = "\n\nSyracuse ZIP-to-Neighborhood mapping:\n" + "\n".join(zip_lines) + "\n\nWhen discussing ZIP codes, mention which neighborhoods they cover."
+
         prompt = f"""Analyze this Syracuse Open Data result and provide 2-3 key insights.
 
 Question: {question}
-Context: {context}
+Context: {context}{zip_context}
 
 Data (first {min(15, total_rows)} of {total_rows} rows):
 {data_summary}
@@ -822,6 +860,15 @@ class FeedbackRequest(BaseModel):
 # =============================================================================
 # ROUTES
 # =============================================================================
+@app.get("/static/{file_path:path}")
+async def serve_static(file_path: str):
+    """Serve static files."""
+    full_path = _BASE_DIR / "static" / file_path
+    if not full_path.is_file() or not full_path.resolve().is_relative_to(_BASE_DIR / "static"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    return FileResponse(full_path)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Serve the main page."""
@@ -869,7 +916,7 @@ async def query_data(request: Request, req: QueryRequest):
         formatted_row = {}
         for col in df.columns:
             readable_col = get_readable_column(col, metadata)
-            formatted_row[readable_col] = format_value(row[col])
+            formatted_row[readable_col] = format_value(row[col], column_name=col)
         formatted_data.append(formatted_row)
 
     # Prepare chart data
@@ -898,11 +945,16 @@ async def query_data(request: Request, req: QueryRequest):
                 and len(value_cols) >= 2
             )
 
+            # For ZIP columns, convert labels to strings so Plotly doesn't format as "13.2K"
+            is_zip_category = category_col in ZIP_GROUP_COLUMNS
+            if is_zip_category:
+                zip_labels = [str(int(v)) if not pd.isna(v) else "Unknown" for v in chart_df[category_col]]
+
             if is_join_grouped:
                 # Grouped bar chart for cross-dataset comparisons
                 chart_data = {
                     "type": "grouped_bar",
-                    "labels": _safe_list(chart_df[category_col]),
+                    "labels": zip_labels if is_zip_category else _safe_list(chart_df[category_col]),
                     "datasets": [
                         {
                             "label": DATASET_LABELS.get(metadata.get("primary_dataset", ""), "Primary"),
@@ -928,7 +980,7 @@ async def query_data(request: Request, req: QueryRequest):
                 # Simple bar chart
                 chart_data = {
                     "type": "bar",
-                    "labels": _safe_list(chart_df[category_col]),
+                    "labels": zip_labels if is_zip_category else _safe_list(chart_df[category_col]),
                     "values": _safe_list(chart_df[value_cols[0]]),
                     "x_label": get_readable_column(category_col, metadata),
                     "y_label": get_readable_column(value_cols[0], metadata),

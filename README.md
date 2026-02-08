@@ -44,16 +44,16 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 ```
 User Question
     |
-Intent Parser (detects complexity)
-    |-- Path 1 (Simple/Medium) --> Intent JSON --> Schema Validator --> SQL Builder --> DuckDB
+Complexity Triage (routes by query complexity)
+    |-- Simple/Medium --> Intent JSON --> Schema Validator --> SQL Builder --> DuckDB
     |   Supports: count, count_distinct, avg/min/max/sum, temporal GROUP BY,
     |             HAVING, multi GROUP BY, cross-dataset joins
     |
-    +-- Path 2 (Complex) --> LLM SQL Generation --> SQL Validator (guardrails) --> DuckDB
+    +-- Complex --------> LLM SQL Gen --> SQL Validator (guardrails) --> DuckDB
         Supports: window functions, CASE WHEN, subqueries, rankings, percentiles
 ```
 
-- **Intent Parser**: Converts natural language to structured JSON (GPT-4o-mini or heuristic fallback)
+- **Complexity Triage**: Routes queries by complexity — simple/medium queries get deterministic SQL via intent JSON; complex queries get LLM-generated SQL with guardrails
 - **Schema Validation**: Enforces allowed datasets, fields, metrics, and filters
 - **SQL Builder**: Generates deterministic DuckDB queries (single-table, joins via CTE or LEFT JOIN)
 - **SQL Validator**: Guardrails for LLM-generated SQL (read-only, table allowlist, LIMIT 1000)
@@ -68,25 +68,47 @@ Intent Parser (detects complexity)
 - **LLM**: OpenAI GPT-4o-mini (intent parsing only — never touches data)
 - **Deployment**: Hugging Face Spaces (Docker) or Render.com
 
-## Run Locally
+## Setup
+
+### Prerequisites
+
+- Python 3.10+
+- pip
+- (Optional) OpenAI API key for AI-powered features — the app works without it via heuristic fallback
+
+### Installation
 
 ```bash
-# Clone and setup
+# 1. Clone the repository
 git clone https://github.com/prathyusha1231/Ask-Syracuse-Data.git
 cd Ask-Syracuse-Data
+
+# 2. Create and activate a virtual environment
 python -m venv venv
-.\venv\Scripts\activate  # Windows
+.\venv\Scripts\activate    # Windows
+# source venv/bin/activate  # macOS/Linux
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# Optional: Set OpenAI API key for AI features (app works without it)
-# Create .env file with: OPENAI_API_KEY=sk-...
+# 4. Download data files to data/raw/ (see Data Sources below)
+mkdir -p data/raw
+# Place all CSV/XLSX files from Syracuse Open Data Portal into data/raw/
 
-# Download data files to data/raw/ (see Data Sources below)
+# 5. (Optional) Create .env file for AI features
+echo "OPENAI_API_KEY=sk-..." > .env
 
-# Run the web app
+# 6. Start the web app
 python -m uvicorn app:app --reload
 # Open http://127.0.0.1:8000
 ```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENAI_API_KEY` | No | OpenAI API key for AI intent parsing and insights. Without it, the heuristic parser handles common queries. |
+| `PORT` | No | Port for the web server (default: 8000). Set automatically on Render/HF Spaces. |
 
 ## Example Queries
 

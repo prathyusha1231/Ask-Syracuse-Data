@@ -128,29 +128,95 @@
             opacity: 0;
         }
 
-        /* Enhancement 3: Tab transitions */
-        .tab-content {
-            transition: opacity 0.2s ease;
+        /* Results grid layout */
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
         }
-        .tab-hidden {
+        .results-grid .full-width {
+            grid-column: 1 / -1;
+        }
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .result-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .result-card-header {
+            padding: 0.875rem 1.25rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+        }
+        .result-card-body {
+            padding: 1.25rem;
+        }
+        .result-card-body.scroll-table {
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        .result-card-body.scroll-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        /* Tech accordions (SQL, Validation, Sources) */
+        .tech-accordion {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        .tech-accordion + .tech-accordion {
+            margin-top: 0.5rem;
+        }
+        .tech-accordion-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1.25rem;
+            background: #f9fafb;
+            cursor: pointer;
+            border: none;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+        }
+        .tech-accordion-header:hover {
+            background: #f3f4f6;
+        }
+        .tech-accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease-out, opacity 0.25s ease-out;
             opacity: 0;
-            position: absolute;
-            pointer-events: none;
-            visibility: hidden;
         }
-        .tab-visible {
+        .tech-accordion-content.open {
+            max-height: 2000px;
             opacity: 1;
-            position: relative;
-            pointer-events: auto;
-            visibility: visible;
+            transition: max-height 0.45s ease-in, opacity 0.3s ease-in;
         }
-        .tab-underline {
-            position: absolute;
-            bottom: 0;
-            height: 3px;
-            background: #F76900;
-            transition: left 0.3s ease, width 0.3s ease;
-            border-radius: 2px 2px 0 0;
+        .tech-accordion-header .chevron-icon {
+            transition: transform 0.25s ease;
+        }
+        .tech-accordion-header .chevron-icon.rotated {
+            transform: rotate(180deg);
         }
 
         /* Enhancement 4: Skeleton loading */
@@ -239,7 +305,11 @@
     <!-- ============================================================ -->
     <!-- HERO + QUERY (merged) -->
     <!-- ============================================================ -->
-    <header class="relative bg-syracuse-blue overflow-hidden" id="querySection">
+    <header class="relative overflow-hidden" id="querySection" style="background-color: #003F77;">
+        <!-- Syracuse skyline background image -->
+        <div class="absolute inset-0" style="background-image: url('/static/hero-bg.jpg'); background-size: cover; background-position: center 70%;"></div>
+        <!-- Dark overlay for text readability -->
+        <div class="absolute inset-0" style="background: rgba(0,25,55,0.42);"></div>
         <div class="max-w-7xl mx-auto px-6 pt-10 md:pt-14 pb-24 md:pb-28 text-center relative z-10">
             <p class="uppercase tracking-[0.25em] text-blue-300 text-sm font-heading font-semibold mb-4">Syracuse Open Data</p>
             <h1 class="font-heading font-bold text-5xl md:text-7xl text-white leading-tight mb-4">
@@ -279,30 +349,30 @@
                     </button>
                 </div>
 
-                <!-- Example pills -->
+                <!-- Example pills (all produce chart + map) -->
                 <div class="mt-5 flex flex-wrap justify-center gap-2">
-                    <button onclick="setQuestion('How many code violations are there?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Total violations
-                    </button>
                     <button onclick="setQuestion('Violations by neighborhood')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Violations by neighborhood
+                        Violations by area
                     </button>
-                    <button onclick="setQuestion('How many parking violations by type?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Parking violations
+                    <button onclick="setQuestion('Crime by zip code')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                        Crime by ZIP
                     </button>
-                    <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Cityline complaints
+                    <button onclick="setQuestion('Parking violations by zip')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                        Parking by ZIP
                     </button>
-                    <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Tree species
+                    <button onclick="setQuestion('Cityline complaints by neighborhood')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                        Complaints by area
                     </button>
-                    <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Monday trash
+                    <button onclick="setQuestion('Trees by neighborhood')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                        Trees by area
                     </button>
-                    <button onclick="setQuestion('Bike infrastructure by type')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
-                        Bike infra
+                    <button onclick="setQuestion('Permit requests by zip')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                        Permits by ZIP
                     </button>
-                    <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                    <button onclick="setQuestion('Violations by neighborhood and year')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
+                        Violations trend
+                    </button>
+                    <button onclick="setQuestion('Rental properties with violations by zip')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Rentals + violations
                     </button>
                 </div>
@@ -397,38 +467,15 @@
                 </div>
             </div>
 
-            <!-- Tabs -->
-            <div class="bg-white rounded-2xl shadow-md overflow-hidden">
-                <div class="border-b-2 border-gray-100">
-                    <nav id="tabNav" class="flex overflow-x-auto relative">
-                        <button onclick="showTab('data')" id="tab-data" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-syracuse-orange whitespace-nowrap">
-                            Data
-                        </button>
-                        <button onclick="showTab('chart')" id="tab-chart" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
-                            Chart
-                        </button>
-                        <button onclick="showTab('map')" id="tab-map" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap hidden">
-                            Map
-                        </button>
-                        <button onclick="showTab('insights')" id="tab-insights" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
-                            Insights
-                        </button>
-                        <button onclick="showTab('sql')" id="tab-sql" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
-                            SQL
-                        </button>
-                        <button onclick="showTab('validation')" id="tab-validation" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
-                            Validation
-                        </button>
-                        <button onclick="showTab('sources')" id="tab-sources" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
-                            Sources
-                        </button>
-                        <div id="tabUnderline" class="tab-underline"></div>
-                    </nav>
-                </div>
-
-                <!-- Tab Content -->
-                <div class="p-6 relative">
-                    <div id="content-data" class="tab-content tab-visible">
+            <!-- Results Grid -->
+            <div class="results-grid">
+                <!-- Row 1 Left: Data Table -->
+                <div class="result-card">
+                    <div class="result-card-header">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        Results
+                    </div>
+                    <div class="result-card-body scroll-table">
                         <div class="overflow-x-auto">
                             <table id="dataTable" class="w-full text-left">
                                 <thead id="tableHead" class="bg-syracuse-blue text-white text-xs font-heading uppercase tracking-wider"></thead>
@@ -436,36 +483,100 @@
                             </table>
                         </div>
                     </div>
-                    <div id="content-chart" class="tab-content tab-hidden">
-                        <div id="chartContainer" style="width:100%; height:450px;"></div>
-                        <p id="noChart" class="text-gray-400 text-center py-8 hidden font-heading">Chart not available for this query type.</p>
+                </div>
+
+                <!-- Row 1 Right: Insights -->
+                <div class="result-card">
+                    <div class="result-card-header">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        Insights
                     </div>
-                    <div id="content-map" class="tab-content tab-hidden">
-                        <div id="mapContainer" style="width:100%; height:450px;"></div>
-                        <p id="noMap" class="text-gray-400 text-center py-8 hidden font-heading">Map not available for this query.</p>
-                    </div>
-                    <div id="content-insights" class="tab-content tab-hidden">
+                    <div class="result-card-body">
                         <div id="insightsContent" class="prose max-w-none"></div>
                         <p id="noInsights" class="text-gray-400 text-center py-8 hidden font-heading">Set OPENAI_API_KEY to enable AI-powered insights.</p>
                     </div>
-                    <div id="content-sql" class="tab-content tab-hidden">
-                        <pre id="sqlCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
+                </div>
+
+                <!-- Row 2: Chart (full width) -->
+                <div id="card-chart" class="result-card full-width hidden">
+                    <div class="result-card-header">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        Visuals
                     </div>
-                    <div id="content-validation" class="tab-content tab-hidden">
-                        <div id="validationContent" class="space-y-4">
-                            <div id="validationStatus" class="p-4 rounded-xl"></div>
-                            <div id="biasWarnings" class="space-y-2"></div>
+                    <div class="result-card-body">
+                        <div id="chartContainer" style="width:100%; height:450px;"></div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Map (full width, hidden when no map) -->
+                <div id="card-map" class="result-card full-width hidden">
+                    <div class="result-card-header">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                        Map
+                    </div>
+                    <div class="result-card-body">
+                        <div id="mapContainer" style="width:100%; height:450px;"></div>
+                    </div>
+                </div>
+
+                <!-- Row 4: Technical accordions (full width) -->
+                <div class="full-width space-y-2">
+                    <!-- SQL Accordion -->
+                    <div class="tech-accordion">
+                        <button onclick="toggleTechAccordion('sql')" class="tech-accordion-header">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                                SQL Query
+                            </span>
+                            <svg id="chevron-tech-sql" class="chevron-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div id="tech-sql" class="tech-accordion-content">
+                            <div class="p-5">
+                                <pre id="sqlCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
+                            </div>
                         </div>
                     </div>
-                    <div id="content-sources" class="tab-content tab-hidden">
-                        <div id="sourcesContent" class="space-y-4"></div>
-                        <div class="mt-6 p-5 bg-syracuse-blue/5 rounded-xl border border-syracuse-blue/10">
-                            <p class="text-sm text-gray-600">
-                                <strong class="text-charcoal">Data Integrity Note:</strong> All data comes from static CSV snapshots downloaded from
-                                <a href="https://data.syr.gov" target="_blank" class="text-syracuse-blue hover:underline font-medium">Syracuse Open Data Portal</a>.
-                                The LLM is used only for parsing natural language queries into structured intents &mdash; it never
-                                accesses, modifies, or interprets the raw data. All computations are deterministic SQL queries.
-                            </p>
+
+                    <!-- Validation Accordion -->
+                    <div class="tech-accordion">
+                        <button onclick="toggleTechAccordion('validation')" class="tech-accordion-header">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Validation
+                            </span>
+                            <svg id="chevron-tech-validation" class="chevron-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div id="tech-validation" class="tech-accordion-content">
+                            <div class="p-5">
+                                <div id="validationContent" class="space-y-4">
+                                    <div id="validationStatus" class="p-4 rounded-xl"></div>
+                                    <div id="biasWarnings" class="space-y-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sources Accordion -->
+                    <div class="tech-accordion">
+                        <button onclick="toggleTechAccordion('sources')" class="tech-accordion-header">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                Sources
+                            </span>
+                            <svg id="chevron-tech-sources" class="chevron-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div id="tech-sources" class="tech-accordion-content">
+                            <div class="p-5">
+                                <div id="sourcesContent" class="space-y-4"></div>
+                                <div class="mt-6 p-5 bg-syracuse-blue/5 rounded-xl border border-syracuse-blue/10">
+                                    <p class="text-sm text-gray-600">
+                                        <strong class="text-charcoal">Data Integrity Note:</strong> All data comes from static CSV snapshots downloaded from
+                                        <a href="https://data.syr.gov" target="_blank" class="text-syracuse-blue hover:underline font-medium">Syracuse Open Data Portal</a>.
+                                        The LLM is used only for parsing natural language queries into structured intents &mdash; it never
+                                        accesses, modifies, or interprets the raw data. All computations are deterministic SQL queries.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -881,14 +992,14 @@
         // TYPEWRITER
         // =====================================================
         const TYPEWRITER_QUERIES = [
-            'How many violations by neighborhood?',
-            'Crime by year',
-            'Vacant properties by zip code',
-            'Most common tree species in Syracuse',
-            'Parking violations by type',
-            'Which zip codes have rental properties with violations?',
-            'How many building permits by type?',
-            'Bike infrastructure by type'
+            'Violations by neighborhood',
+            'Crime by zip code',
+            'Parking violations by zip',
+            'Cityline complaints by neighborhood',
+            'Trees by neighborhood',
+            'Permit requests by zip',
+            'Violations by neighborhood and year',
+            'Rental properties with violations by zip'
         ];
         let twIndex = 0, twCharIndex = 0, twDeleting = false, twTimer = null, twRunning = true;
         const twTextEl = () => document.getElementById('typewriterText');
@@ -1064,56 +1175,20 @@
         let currentSql = null;
         let currentDataset = null;
         let feedbackRating = null;
-        let chartAnimationPending = false;
-        let chartRealData = null;
-
         // =====================================================
-        // TABS (Enhanced with sliding underline + fade)
+        // TECH ACCORDION TOGGLE
         // =====================================================
-        function moveUnderline(tabBtn) {
-            const underline = document.getElementById('tabUnderline');
-            const nav = document.getElementById('tabNav');
-            if (!underline || !nav || !tabBtn) return;
-            const navRect = nav.getBoundingClientRect();
-            const btnRect = tabBtn.getBoundingClientRect();
-            underline.style.left = (btnRect.left - navRect.left + nav.scrollLeft) + 'px';
-            underline.style.width = btnRect.width + 'px';
-        }
-
-        function showTab(tabName) {
-            // Fade out current visible tab
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.remove('tab-visible');
-                el.classList.add('tab-hidden');
-            });
-            document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('text-syracuse-orange');
-                el.classList.add('text-gray-400');
-            });
-
-            // Fade in target tab
-            const target = document.getElementById(`content-${tabName}`);
-            target.classList.remove('tab-hidden');
-            target.classList.add('tab-visible');
-
-            const tabBtn = document.getElementById(`tab-${tabName}`);
-            tabBtn.classList.add('text-syracuse-orange');
-            tabBtn.classList.remove('text-gray-400');
-
-            // Slide underline
-            moveUnderline(tabBtn);
-
-            if (tabName === 'chart') {
-                setTimeout(() => {
-                    Plotly.Plots.resize('chartContainer');
-                    // Enhancement 8: Animate chart on first view
-                    if (chartAnimationPending && chartRealData) {
-                        animateChartIn(chartRealData);
-                        chartAnimationPending = false;
-                    }
-                }, 100);
+        function toggleTechAccordion(id) {
+            const content = document.getElementById('tech-' + id);
+            const chevron = document.getElementById('chevron-tech-' + id);
+            const isOpen = content.classList.contains('open');
+            if (isOpen) {
+                content.classList.remove('open');
+                chevron.classList.remove('rotated');
+            } else {
+                content.classList.add('open');
+                chevron.classList.add('rotated');
             }
-            if (tabName === 'map') setTimeout(() => Plotly.Plots.resize('mapContainer'), 100);
         }
 
         // =====================================================
@@ -1249,15 +1324,12 @@
             tbody.innerHTML = '';
 
             currentMapData = data.map_data || null;
-            const mapTab = document.getElementById('tab-map');
-            if (currentMapData && currentMapData.type) { mapTab.classList.remove('hidden'); } else { mapTab.classList.add('hidden'); }
 
             if (data.columns && data.data) {
                 const headerRow = document.createElement('tr');
                 data.columns.forEach(col => { const th = document.createElement('th'); th.className = 'px-4 py-3'; th.textContent = col; headerRow.appendChild(th); });
                 thead.appendChild(headerRow);
 
-                // Enhancement 2: Staggered row entrance
                 data.data.forEach((row, idx) => {
                     const tr = document.createElement('tr');
                     tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-warm-white';
@@ -1270,27 +1342,26 @@
                 });
             }
 
-            const chartContainer = document.getElementById('chartContainer');
-            const noChart = document.getElementById('noChart');
+            // Chart card: show/hide
+            const cardChart = document.getElementById('card-chart');
             if (data.chart_data) {
-                noChart.classList.add('hidden');
-                chartContainer.style.display = 'block';
+                cardChart.classList.remove('hidden');
                 currentChartData = data.chart_data;
-                chartRealData = data.chart_data;
                 renderChart(data.chart_data);
-                chartAnimationPending = false;
             } else {
-                chartContainer.style.display = 'none';
-                noChart.classList.remove('hidden');
-                chartRealData = null;
-                chartAnimationPending = false;
+                cardChart.classList.add('hidden');
             }
 
-            const mapContainer = document.getElementById('mapContainer');
-            const noMap = document.getElementById('noMap');
-            if (currentMapData && currentMapData.type) { noMap.classList.add('hidden'); mapContainer.style.display = 'block'; renderMap(currentMapData); }
-            else { mapContainer.style.display = 'none'; noMap.classList.remove('hidden'); }
+            // Map card: show/hide
+            const cardMap = document.getElementById('card-map');
+            if (currentMapData && currentMapData.type) {
+                cardMap.classList.remove('hidden');
+                renderMap(currentMapData);
+            } else {
+                cardMap.classList.add('hidden');
+            }
 
+            // Insights
             const insightsContent = document.getElementById('insightsContent');
             const noInsights = document.getElementById('noInsights');
             if (data.insights) {
@@ -1303,7 +1374,12 @@
             document.getElementById('sqlCode').textContent = data.sql || 'No SQL generated';
             renderValidation(data.validation, data.bias_warnings);
             renderSources(data.citations);
-            showTab('data');
+
+            // Resize Plotly charts after layout renders
+            setTimeout(() => {
+                if (data.chart_data) Plotly.Plots.resize('chartContainer');
+                if (currentMapData && currentMapData.type) Plotly.Plots.resize('mapContainer');
+            }, 150);
         }
 
         // =====================================================
@@ -1349,75 +1425,16 @@
             sourcesEl.innerHTML = html;
         }
 
-        // Enhancement 8: Render chart with zero y-values for animation
-        function renderChartWithZeros(chartData) {
-            const container = document.getElementById('chartContainer');
-            Plotly.purge(container);
-            const fontConfig = { family: 'Space Grotesk, Inter, sans-serif' };
-            if (chartData.type === 'grouped_bar') {
-                const traces = chartData.datasets.map((ds, idx) => ({
-                    x: chartData.labels, y: ds.data.map(() => 0), name: ds.label, type: 'bar',
-                    marker: { color: idx === 0 ? '#F76900' : '#003F77' }
-                }));
-                Plotly.newPlot(container, traces, { barmode: 'group', xaxis: { title: chartData.x_label, tickangle: -45 }, yaxis: { title: 'Count' }, margin: { b: 120, l: 60, r: 40, t: 40 }, legend: { orientation: 'h', y: 1.1 }, font: fontConfig }, { responsive: true });
-            } else if (chartData.type === 'bar') {
-                const trace = {
-                    x: chartData.labels, y: chartData.values.map(() => 0), type: 'bar',
-                    marker: { color: chartData.values, colorscale: [[0, '#93c5fd'], [1, '#003F77']], showscale: false },
-                    text: chartData.values.map(() => ''), textposition: 'outside',
-                    hovertemplate: '%{x}<br>Count: %{y:,}<extra></extra>'
-                };
-                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, tickangle: -45, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 120, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#003F77' }, font: fontConfig }, { responsive: true });
-            } else if (chartData.type === 'line') {
-                const trace = {
-                    x: chartData.labels, y: chartData.values.map(() => 0), type: 'scatter', mode: 'lines+markers',
-                    line: { color: '#F76900', width: 3 }, marker: { size: 8, color: '#F76900' },
-                    hovertemplate: '%{x}<br>%{y:,}<extra></extra>'
-                };
-                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 80, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#F76900' }, font: fontConfig }, { responsive: true });
-            }
-        }
-
-        function animateChartIn(chartData) {
-            const container = document.getElementById('chartContainer');
-            if (chartData.type === 'grouped_bar') {
-                const update = {};
-                chartData.datasets.forEach((ds, idx) => {
-                    update['y'] = ds.data; // will be applied per-trace below
-                });
-                // Animate each trace
-                chartData.datasets.forEach((ds, idx) => {
-                    Plotly.animate(container, {
-                        data: [{ y: ds.data }],
-                        traces: [idx]
-                    }, { transition: { duration: 600, easing: 'cubic-out' }, frame: { duration: 600 } });
-                });
-            } else if (chartData.type === 'bar') {
-                Plotly.animate(container, {
-                    data: [{
-                        y: chartData.values,
-                        text: chartData.values.map(v => v.toLocaleString())
-                    }],
-                    traces: [0]
-                }, { transition: { duration: 600, easing: 'cubic-out' }, frame: { duration: 600 } });
-            } else if (chartData.type === 'line') {
-                Plotly.animate(container, {
-                    data: [{ y: chartData.values }],
-                    traces: [0]
-                }, { transition: { duration: 600, easing: 'cubic-out' }, frame: { duration: 600 } });
-            }
-        }
-
         function renderChart(chartData) {
             const container = document.getElementById('chartContainer');
             Plotly.purge(container);
             const fontConfig = { family: 'Space Grotesk, Inter, sans-serif' };
             if (chartData.type === 'grouped_bar') {
                 const traces = chartData.datasets.map((ds, idx) => ({ x: chartData.labels, y: ds.data, name: ds.label, type: 'bar', marker: { color: idx === 0 ? '#F76900' : '#003F77' } }));
-                Plotly.newPlot(container, traces, { barmode: 'group', xaxis: { title: chartData.x_label, tickangle: -45 }, yaxis: { title: 'Count' }, margin: { b: 120, l: 60, r: 40, t: 40 }, legend: { orientation: 'h', y: 1.1 }, font: fontConfig }, { responsive: true });
+                Plotly.newPlot(container, traces, { barmode: 'group', xaxis: { title: chartData.x_label, tickangle: -45, type: 'category' }, yaxis: { title: 'Count' }, margin: { b: 120, l: 60, r: 40, t: 40 }, legend: { orientation: 'h', y: 1.1 }, font: fontConfig }, { responsive: true });
             } else if (chartData.type === 'bar') {
                 const trace = { x: chartData.labels, y: chartData.values, type: 'bar', marker: { color: chartData.values, colorscale: [[0, '#93c5fd'], [1, '#003F77']], showscale: false }, text: chartData.values.map(v => v.toLocaleString()), textposition: 'outside', hovertemplate: '%{x}<br>Count: %{y:,}<extra></extra>' };
-                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, tickangle: -45, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 120, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#003F77' }, font: fontConfig }, { responsive: true });
+                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, tickangle: -45, automargin: true, type: 'category' }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 120, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#003F77' }, font: fontConfig }, { responsive: true });
             } else if (chartData.type === 'line') {
                 const trace = { x: chartData.labels, y: chartData.values, type: 'scatter', mode: 'lines+markers', line: { color: '#F76900', width: 3 }, marker: { size: 8, color: '#F76900' }, hovertemplate: '%{x}<br>%{y:,}<extra></extra>' };
                 Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 80, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#F76900' }, font: fontConfig }, { responsive: true });
@@ -1613,12 +1630,6 @@
 
             // Restart typewriter when input is blurred and empty
             questionInput().addEventListener('blur', () => { setTimeout(maybeRestartTypewriter, 300); });
-
-            // Enhancement 3: Initialize underline position
-            setTimeout(() => {
-                const activeTab = document.getElementById('tab-data');
-                if (activeTab) moveUnderline(activeTab);
-            }, 100);
 
             // Enhancement 6: IntersectionObserver for scroll button
             const scrollBtn = document.getElementById('scrollTopBtn');
