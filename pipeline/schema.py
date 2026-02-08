@@ -554,7 +554,7 @@ def validate_intent(intent: Dict[str, Any]) -> Dict[str, Any]:
     if having is not None:
         if not isinstance(having, dict) or "op" not in having or "value" not in having:
             raise ValueError("'having' must be {\"op\": \">\", \"value\": 100}.")
-        if having["op"] not in (">", ">=", "<", "<="):
+        if having["op"] not in ("=", ">", ">=", "<", "<="):
             raise ValueError(f"Unsupported having operator '{having['op']}'.")
         try:
             having = {"op": having["op"], "value": int(having["value"])}
