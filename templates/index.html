@@ -242,9 +242,31 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
-                    <div>
+                    <div class="flex-1">
                         <h2 class="font-heading font-bold text-charcoal text-lg" id="resultDescription"></h2>
                         <p class="text-gray-500 text-sm mt-1" id="limitations"></p>
+                    </div>
+                </div>
+                <!-- Feedback UI -->
+                <div id="feedbackSection" class="mt-4 pt-4 border-t border-gray-100">
+                    <div id="feedbackButtons" class="flex items-center gap-3">
+                        <span class="text-sm text-gray-400">Was this helpful?</span>
+                        <button onclick="submitFeedback('up')" id="btn-thumbs-up" class="p-2 rounded-lg border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition group" title="Helpful">
+                            <svg class="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z M4 21H2V10h2v11z"></path></svg>
+                        </button>
+                        <button onclick="submitFeedback('down')" id="btn-thumbs-down" class="p-2 rounded-lg border border-gray-200 hover:border-red-400 hover:bg-red-50 transition group" title="Not helpful">
+                            <svg class="w-5 h-5 text-gray-400 group-hover:text-red-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z M20 2h2v11h-2V2z"></path></svg>
+                        </button>
+                    </div>
+                    <div id="feedbackComment" class="hidden mt-3">
+                        <textarea id="feedbackText" class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-syracuse-orange/30 outline-none resize-none" rows="2" placeholder="Tell us more (optional)..."></textarea>
+                        <div class="flex justify-end mt-2">
+                            <button onclick="sendFeedbackComment()" id="feedbackSubmitBtn" class="bg-syracuse-blue hover:bg-syracuse-blue-dark text-white px-5 py-2 rounded-lg text-sm font-heading font-semibold transition">Submit</button>
+                        </div>
+                    </div>
+                    <div id="feedbackThanks" class="hidden flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        Thank you for your feedback!
                     </div>
                 </div>
             </div>
@@ -875,6 +897,11 @@
 
         let hasNeighborhoodData = false;
         let currentChartData = null;
+        let currentQueryId = null;
+        let currentQuestion = null;
+        let currentSql = null;
+        let currentDataset = null;
+        let feedbackRating = null;
 
         // =====================================================
         // TABS
@@ -907,6 +934,7 @@
         async function submitQuery() {
             const question = questionInput().value.trim();
             if (!question) { showError('Please enter a question.'); return; }
+            currentQuestion = question;
 
             stopTypewriter();
             document.getElementById('loading').classList.remove('hidden');
@@ -941,6 +969,18 @@
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('resultDescription').textContent = data.description || 'Query completed';
             document.getElementById('limitations').textContent = data.limitations || '';
+
+            // Reset feedback UI
+            currentQueryId = data.query_id;
+            currentSql = data.sql;
+            currentDataset = data.metadata && data.metadata.dataset ? data.metadata.dataset : null;
+            feedbackRating = null;
+            document.getElementById('feedbackButtons').classList.remove('hidden');
+            document.getElementById('feedbackComment').classList.add('hidden');
+            document.getElementById('feedbackThanks').classList.add('hidden');
+            document.getElementById('feedbackText').value = '';
+            document.getElementById('btn-thumbs-up').classList.remove('border-emerald-500', 'bg-emerald-50');
+            document.getElementById('btn-thumbs-down').classList.remove('border-red-500', 'bg-red-50');
 
             const thead = document.getElementById('tableHead');
             const tbody = document.getElementById('tableBody');
@@ -1058,6 +1098,56 @@
                 if (coords) { lats.push(coords.lat); lons.push(coords.lon); texts.push(`${name}<br>Count: ${values[idx].toLocaleString()}`); sizes.push(minSize + (values[idx] / maxVal) * (maxSize - minSize)); }
             });
             Plotly.newPlot(container, [{ type: 'scattermapbox', lat: lats, lon: lons, mode: 'markers', marker: { size: sizes, color: values.filter((_, i) => NEIGHBORHOOD_COORDS[neighborhoods[i]]), colorscale: [[0, '#fef3c7'], [0.5, '#f97316'], [1, '#dc2626']], showscale: true, colorbar: { title: 'Count', thickness: 15 } }, text: texts, hoverinfo: 'text' }], { mapbox: { style: 'carto-positron', center: { lat: 43.045, lon: -76.145 }, zoom: 11.5 }, margin: { l: 0, r: 0, t: 0, b: 0 }, showlegend: false, font: { family: 'Space Grotesk, Inter, sans-serif' } }, { responsive: true });
+        }
+
+        // =====================================================
+        // FEEDBACK
+        // =====================================================
+        function submitFeedback(rating) {
+            feedbackRating = rating;
+            // Highlight selected button
+            const upBtn = document.getElementById('btn-thumbs-up');
+            const downBtn = document.getElementById('btn-thumbs-down');
+            upBtn.classList.remove('border-emerald-500', 'bg-emerald-50');
+            downBtn.classList.remove('border-red-500', 'bg-red-50');
+            if (rating === 'up') {
+                upBtn.classList.add('border-emerald-500', 'bg-emerald-50');
+            } else {
+                downBtn.classList.add('border-red-500', 'bg-red-50');
+            }
+            // Show comment box
+            document.getElementById('feedbackComment').classList.remove('hidden');
+            // Send rating immediately (comment is optional)
+            sendFeedbackToServer(rating, null);
+        }
+
+        function sendFeedbackComment() {
+            const comment = document.getElementById('feedbackText').value.trim();
+            if (!feedbackRating) return;
+            sendFeedbackToServer(feedbackRating, comment || null);
+            // Show thank you
+            document.getElementById('feedbackButtons').classList.add('hidden');
+            document.getElementById('feedbackComment').classList.add('hidden');
+            document.getElementById('feedbackThanks').classList.remove('hidden');
+        }
+
+        async function sendFeedbackToServer(rating, comment) {
+            try {
+                await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query_id: currentQueryId,
+                        question: currentQuestion,
+                        rating: rating,
+                        comment: comment,
+                        sql: currentSql,
+                        dataset: currentDataset
+                    })
+                });
+            } catch (err) {
+                console.error('Failed to send feedback:', err);
+            }
         }
 
         // =====================================================

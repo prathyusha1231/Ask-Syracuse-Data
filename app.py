@@ -8,6 +8,10 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from pathlib import Path
+import sqlite3
+import uuid
+import datetime
 import pandas as pd
 from openai import OpenAI
 
@@ -26,6 +30,29 @@ app = FastAPI(
 
 # Templates
 templates = Jinja2Templates(directory="templates")
+
+# Feedback database
+FEEDBACK_DB = Path("data/feedback.db")
+
+
+def _init_feedback_db():
+    FEEDBACK_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(FEEDBACK_DB)
+    conn.execute("""CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        question TEXT NOT NULL,
+        rating TEXT NOT NULL CHECK(rating IN ('up','down')),
+        comment TEXT,
+        sql_query TEXT,
+        dataset TEXT
+    )""")
+    conn.commit()
+    conn.close()
+
+
+_init_feedback_db()
 
 
 # =============================================================================
@@ -487,6 +514,7 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     success: bool
+    query_id: str | None = None
     description: str | None = None
     columns: list[str] | None = None
     data: list[dict] | None = None
@@ -499,6 +527,15 @@ class QueryResponse(BaseModel):
     bias_warnings: list[dict] | None = None
     citations: list[dict] | None = None
     error: str | None = None
+
+
+class FeedbackRequest(BaseModel):
+    query_id: str
+    question: str
+    rating: str
+    comment: str | None = None
+    sql: str | None = None
+    dataset: str | None = None
 
 
 # =============================================================================
@@ -516,11 +553,13 @@ async def query_data(req: QueryRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
+    query_id = str(uuid.uuid4())
     result = run_query(req.question)
 
     if result.get("error"):
         return QueryResponse(
             success=False,
+            query_id=query_id,
             error=result["error"],
             sql=result.get("sql"),
             metadata=result.get("metadata"),
@@ -639,6 +678,7 @@ async def query_data(req: QueryRequest):
 
     return QueryResponse(
         success=True,
+        query_id=query_id,
         description=description,
         columns=columns,
         data=formatted_data,
@@ -651,6 +691,46 @@ async def query_data(req: QueryRequest):
         bias_warnings=result.get("bias_warnings"),
         citations=citations,
     )
+
+
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackRequest):
+    """Record user feedback on a query result."""
+    if req.rating not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="Rating must be 'up' or 'down'")
+
+    conn = sqlite3.connect(FEEDBACK_DB)
+    conn.execute(
+        "INSERT INTO feedback (query_id, timestamp, question, rating, comment, sql_query, dataset) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            req.query_id,
+            datetime.datetime.utcnow().isoformat(),
+            req.question,
+            req.rating,
+            req.comment,
+            req.sql,
+            req.dataset,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Feedback recorded"}
+
+
+@app.get("/api/feedback/stats")
+async def feedback_stats():
+    """Return feedback statistics."""
+    conn = sqlite3.connect(FEEDBACK_DB)
+    conn.row_factory = sqlite3.Row
+    total = conn.execute("SELECT COUNT(*) as n FROM feedback").fetchone()["n"]
+    thumbs_up = conn.execute("SELECT COUNT(*) as n FROM feedback WHERE rating='up'").fetchone()["n"]
+    thumbs_down = conn.execute("SELECT COUNT(*) as n FROM feedback WHERE rating='down'").fetchone()["n"]
+    recent_rows = conn.execute(
+        "SELECT query_id, timestamp, question, rating, comment FROM feedback ORDER BY id DESC LIMIT 10"
+    ).fetchall()
+    conn.close()
+    recent = [dict(r) for r in recent_rows]
+    return {"total": total, "thumbs_up": thumbs_up, "thumbs_down": thumbs_down, "recent": recent}
 
 
 @app.get("/api/health")
