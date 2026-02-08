@@ -294,6 +294,13 @@ def _run_join_query(raw_intent: dict) -> dict:
             f"Missing loader for '{primary}' or '{secondary}'.", intent=intent
         )
 
+    # Default crime to 2024 when joining with vacant_properties (a current snapshot)
+    _datasets = {primary, secondary}
+    if "crime" in _datasets and "vacant_properties" in _datasets:
+        filters = intent.get("filters") or {}
+        if "year" not in filters:
+            intent.setdefault("filters", {})["year"] = {"op": "=", "value": 2024}
+
     try:
         # Load data (cache with TTL for validation)
         primary_df = _get_cached_df(primary, primary_loader)

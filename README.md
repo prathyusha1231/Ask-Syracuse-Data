@@ -4,7 +4,7 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 
 ## Features
 
-- **Natural Language Queries**: Ask questions like "How many violations by neighborhood?" or "What's the average property assessment?"
+- **Natural Language Queries**: Ask questions like "How many violations by neighborhood?" or "What's the average parking fine?"
 - **16 Datasets**: Housing, public safety, city services, infrastructure, and public health data
 - **Interactive Web UI**: Landing page with dataset explorer, charts, maps, and tabbed results
 - **Cross-Dataset Analysis**: Join violations with rental properties, vacant properties, crime data, and unfit properties
@@ -12,6 +12,7 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 - **Auto-Insights**: AI-generated insights explaining what the data means
 - **Validation**: Ground-truth comparison ensures query results match direct pandas calculations
 - **Bias Detection**: Automatic warnings for framing, normalization, selection, and context biases
+- **Null Handling**: 12 datasets use "label" strategy — nulls replaced with descriptive text so they appear in GROUP BY results instead of being silently dropped
 - **Data Citations**: Full source attribution with dataset caveats and limitations
 - **User Feedback**: Thumbs up/down with optional comments, stored in SQLite for tracking query quality
 
@@ -19,24 +20,24 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 
 16 Syracuse Open Data sources (static CSV snapshots):
 
-| Category | Dataset | Records | Description |
-|----------|---------|---------|-------------|
-| **Housing & Property** | Code Violations | ~44K | Housing code enforcement (2017-present) |
-| | Vacant Properties | ~1.4K | Administratively identified vacancies |
-| | Rental Registry | ~13K | Registered rental property inspections |
-| | Unfit Properties | 353 | Properties declared unfit for habitation |
-| | Historical Properties | 3,486 | Landmark and National Register eligible properties |
-| | Assessment Roll | ~41K | Property assessments and classifications (2026) |
-| **Public Safety** | Crime Data 2022 | ~4K | Part 1 offenses with geocoded neighborhoods |
-| | Parking Violations | ~197K | Parking tickets issued (2023) |
-| **City Services** | SYRCityline Requests | ~116K | 311 service requests |
-| | Trash Pickup | ~41K | Collection schedules (2025) |
-| | Permit Requests | ~47K | Building permit applications |
-| **Infrastructure** | Bike Suitability | 868 | Road bike suitability ratings (2020) |
-| | Bike Infrastructure | 59 | Bike lanes, trails, and paths (2023) |
-| | Snow Routes | 3,685 | Emergency snow route road segments |
-| | Tree Inventory | ~55K | City-managed tree inventory |
-| **Public Health** | Lead Testing | ~157 | Elevated lead levels by census tract (2013-2024) |
+| Category | Dataset | Records | Key Queryable Columns | Description |
+|----------|---------|---------|----------------------|-------------|
+| **Housing & Property** | Code Violations | ~44K | neighborhood, zip, status, year; avg/min/max days_to_comply | Housing code enforcement (2017-present) |
+| | Vacant Properties | ~1.4K | neighborhood, zip | Administratively identified vacancies |
+| | Rental Registry | ~13K | zip, sbl, completion_type | Registered rental property inspections |
+| | Unfit Properties | 353 | zip, department, complaint_type | Properties declared unfit for habitation |
+| | Historical Properties | 3,486 | zip, nr_eligible, lpss | Landmark and National Register eligible properties |
+| | Assessment Roll | ~41K | prop_class_description, zip (extracted); avg/sum total_av | Property assessments and classifications (2026) |
+| **Public Safety** | Crime Data | ~32.8K | neighborhood, zip, code_defined, year, crime_part | Part 1 & 2 offenses (2022-2025) |
+| | Parking Violations | ~197K | description, status, zip, year; avg/min/max/sum amount | Parking tickets issued (2023) |
+| **City Services** | SYRCityline Requests | ~116K | category, agency, report_source, year; avg minutes_to_close | 311 service requests |
+| | Trash Pickup | ~41K | sanitation day, recycling day, zip | Collection schedules (2025) |
+| | Permit Requests | ~47K | permit_type, zip, year | Building permit applications |
+| **Infrastructure** | Bike Suitability | 868 | suitability rating | Road bike suitability ratings (2020) |
+| | Bike Infrastructure | 59 | type; sum miles | Bike lanes, trails, and paths (2023) |
+| | Snow Routes | 3,685 | zip | Emergency snow route road segments |
+| | Tree Inventory | ~55K | neighborhood, condition, species (spp_com) | City-managed tree inventory |
+| **Public Health** | Lead Testing | 1,185 | census_tract, year (2013-2024) | Elevated lead levels by census tract |
 
 ## Architecture
 
@@ -95,16 +96,21 @@ python -m uvicorn app:app --reload
 | Housing | "Violations by neighborhood since 2020" | Filtered, grouped count |
 | Housing | "Average days to comply by neighborhood" | Computed column metric |
 | Housing | "Neighborhoods with more than 100 violations" | HAVING threshold |
-| Safety | "Crime by type" | Crime breakdown |
-| Safety | "Parking violations by zip code" | Parking tickets grouped |
+| Safety | "Crime by year" | Multi-year temporal breakdown |
+| Safety | "How many parking violations by type?" | Parking tickets grouped |
+| Safety | "Average parking fine by type" | Computed column metric (amount) |
 | Services | "Service requests by category" | 311 request breakdown |
+| Services | "Service requests by agency" | Agency-level grouping |
 | Services | "Trash pickup by collection day" | Schedule breakdown |
 | Property | "Average property assessment by class" | Assessment metrics |
+| Property | "Assessment by zip code" | ZIP-level property values |
 | Property | "Historical properties by NR eligibility" | Landmark data |
 | Infra | "Bike infrastructure by type" | Lane/trail/path counts |
 | Infra | "How many miles of bike lanes?" | Sum metric |
-| Trees | "Most common tree species" | Species inventory |
+| Trees | "Most common tree species" | Species count_distinct |
+| Trees | "Trees by neighborhood" | Neighborhood distribution |
 | Health | "Lead testing by census tract" | Public health data |
+| Health | "Lead testing by year" | Temporal trend (2013-2024) |
 | Joins | "Rental properties with violations by zip" | Cross-dataset join |
 | Joins | "Compare crime and violations by neighborhood" | Crime + violations |
 
@@ -116,6 +122,11 @@ Download from [Syracuse Open Data](https://data.syr.gov) and place in `data/raw/
 - `Syracuse_Rental_Registry.csv`
 - `Vacant_Properties.csv`
 - `Crime_Data_2022_(Part_1_Offenses).csv`
+- `Crime_Data_2023_(Part_1_Offenses).csv`
+- `Crime_Data_2023_(Part_2_Offenses).csv`
+- `Crime_Data_2024_(Part_1_Offenses).csv`
+- `Crime_Data_2024_(Part_2_Offenses).csv`
+- `Crime_Data_2025_(Part_1_Offenses).csv`
 - `Unfit_Properties.csv`
 - `Trash_Pickup_2025.csv`
 - `Historical_Properties.csv`
@@ -164,7 +175,7 @@ Every query result includes thumbs up/down buttons with an optional comment box.
 ## Testing
 
 ```bash
-# Benchmark tests (12 tests, no LLM needed)
+# Benchmark tests (13 tests, no LLM needed)
 python -m tests.eval_benchmarks
 
 # With LLM
@@ -172,6 +183,9 @@ python -m tests.eval_benchmarks --llm
 
 # Comprehensive tests (30 questions)
 python -m tests.test_app_comprehensive
+
+# Dataset tests (37 queries across all 16 datasets, requires running server)
+python -m tests.test_all_datasets
 ```
 
 ## Deploy
@@ -188,7 +202,7 @@ python -m tests.test_app_comprehensive
 ## Limitations
 
 - Administrative records reflect reporting/enforcement patterns, not ground truth
-- Crime data covers 2022-2025 (Part 1 & 2 offenses; 2025 is partial); addresses generalized to block level
+- Crime data covers 2022-2025 (Part 1 & 2 offenses; 2025 is partial with only 33 rows); addresses generalized to block level
 - Counts should be normalized for fair neighborhood comparisons
 - Assessed values may differ from market values
 - Lead testing data is census-tract level (research use)
