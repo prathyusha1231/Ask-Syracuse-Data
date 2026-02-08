@@ -240,7 +240,7 @@
     <!-- HERO + QUERY (merged) -->
     <!-- ============================================================ -->
     <header class="relative bg-syracuse-blue overflow-hidden" id="querySection">
-        <div class="max-w-7xl mx-auto px-6 pt-16 md:pt-20 pb-24 md:pb-28 text-center relative z-10">
+        <div class="max-w-7xl mx-auto px-6 pt-10 md:pt-14 pb-24 md:pb-28 text-center relative z-10">
             <p class="uppercase tracking-[0.25em] text-blue-300 text-sm font-heading font-semibold mb-4">Syracuse Open Data</p>
             <h1 class="font-heading font-bold text-5xl md:text-7xl text-white leading-tight mb-4">
                 Ask Syracuse Data
@@ -1107,6 +1107,9 @@
             document.getElementById('error').classList.add('hidden');
             document.getElementById('results').classList.add('hidden');
             showProgressiveLoading();
+
+            // Scroll to loading section
+            document.getElementById('loading').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             try {
                 const response = await fetch('/api/query', {
