@@ -14,7 +14,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" integrity="sha384-Hl48Kq2HifOWdXEjMsKo6qxqvRLTYqIGbvlENBmkHAxZKIGCXv43H6W1jA671RzC" crossorigin="anonymous"></script>
 
     <!-- Custom Tailwind Config -->
     <script>
@@ -256,6 +256,8 @@
                         <input
                             type="text"
                             id="question"
+                            aria-label="Ask a question about Syracuse data"
+                            placeholder="Ask a question..."
                             class="w-full px-5 py-4 pr-12 rounded-xl text-charcoal bg-white shadow-lg focus:ring-4 focus:ring-syracuse-orange/30 outline-none transition text-base"
                             onkeypress="if(event.key === 'Enter') submitQuery()"
                             onfocus="stopTypewriter()"
@@ -268,6 +270,7 @@
                     <button
                         onclick="submitQuery()"
                         id="submitBtn"
+                        aria-label="Submit query"
                         class="bg-syracuse-orange hover:bg-orange-600 text-white px-7 py-4 rounded-xl font-heading font-bold text-base transition shadow-lg flex items-center gap-2"
                     >
                         <span>Query</span>
@@ -375,10 +378,10 @@
                 <div id="feedbackSection" class="mt-4 pt-4 border-t border-gray-100">
                     <div id="feedbackButtons" class="flex items-center gap-3">
                         <span class="text-sm text-gray-400">Was this helpful?</span>
-                        <button onclick="submitFeedback('up')" id="btn-thumbs-up" class="p-2 rounded-lg border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition group" title="Helpful">
+                        <button onclick="submitFeedback('up')" id="btn-thumbs-up" aria-label="Mark result as helpful" class="p-2 rounded-lg border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 transition group" title="Helpful">
                             <svg class="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z M4 21H2V10h2v11z"></path></svg>
                         </button>
-                        <button onclick="submitFeedback('down')" id="btn-thumbs-down" class="p-2 rounded-lg border border-gray-200 hover:border-red-400 hover:bg-red-50 transition group" title="Not helpful">
+                        <button onclick="submitFeedback('down')" id="btn-thumbs-down" aria-label="Mark result as not helpful" class="p-2 rounded-lg border border-gray-200 hover:border-red-400 hover:bg-red-50 transition group" title="Not helpful">
                             <svg class="w-5 h-5 text-gray-400 group-hover:text-red-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z M20 2h2v11h-2V2z"></path></svg>
                         </button>
                     </div>
@@ -863,6 +866,19 @@
 
     <script>
         // =====================================================
+        // XSS PROTECTION
+        // =====================================================
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
+        function sanitizeUrl(url) {
+            if (!url) return '#';
+            try { const u = new URL(url); return ['http:','https:'].includes(u.protocol) ? u.href : '#'; }
+            catch { return '#'; }
+        }
+
+        // =====================================================
         // TYPEWRITER
         // =====================================================
         const TYPEWRITER_QUERIES = [
@@ -1027,7 +1043,22 @@
             'Not Recorded': { lat: 43.045, lon: -76.150 }
         };
 
-        let hasNeighborhoodData = false;
+        const ZIP_COORDS = {
+            '13202': { lat: 43.0410, lon: -76.1489 },
+            '13203': { lat: 43.0607, lon: -76.1369 },
+            '13204': { lat: 43.0444, lon: -76.1758 },
+            '13205': { lat: 43.0123, lon: -76.1452 },
+            '13206': { lat: 43.0677, lon: -76.1102 },
+            '13207': { lat: 43.0195, lon: -76.1650 },
+            '13208': { lat: 43.0730, lon: -76.1486 },
+            '13210': { lat: 43.0354, lon: -76.1282 },
+            '13214': { lat: 43.0397, lon: -76.0722 },
+            '13215': { lat: 42.9722, lon: -76.2276 },
+            '13219': { lat: 43.0409, lon: -76.2262 },
+            '13224': { lat: 43.0421, lon: -76.1046 },
+        };
+
+        let currentMapData = null;
         let currentChartData = null;
         let currentQueryId = null;
         let currentQuestion = null;
@@ -1112,11 +1143,15 @@
             document.getElementById('loading').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
                 const response = await fetch('/api/query', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question })
+                    body: JSON.stringify({ question }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 const data = await response.json();
                 hideProgressiveLoading();
                 document.getElementById('loading').classList.add('hidden');
@@ -1125,7 +1160,11 @@
             } catch (err) {
                 hideProgressiveLoading();
                 document.getElementById('loading').classList.add('hidden');
-                showError('Failed to connect to server: ' + err.message);
+                if (err.name === 'AbortError') {
+                    showError('Request timed out after 60 seconds. Try a simpler question.');
+                } else {
+                    showError('Failed to connect to server: ' + err.message);
+                }
             }
         }
 
@@ -1210,9 +1249,9 @@
             thead.innerHTML = '';
             tbody.innerHTML = '';
 
-            hasNeighborhoodData = data.columns && data.columns.some(col => col.toLowerCase().includes('neighborhood'));
+            currentMapData = data.map_data || null;
             const mapTab = document.getElementById('tab-map');
-            if (hasNeighborhoodData && data.data && data.data.length > 1) { mapTab.classList.remove('hidden'); } else { mapTab.classList.add('hidden'); }
+            if (currentMapData && currentMapData.type) { mapTab.classList.remove('hidden'); } else { mapTab.classList.add('hidden'); }
 
             if (data.columns && data.data) {
                 const headerRow = document.createElement('tr');
@@ -1251,14 +1290,15 @@
 
             const mapContainer = document.getElementById('mapContainer');
             const noMap = document.getElementById('noMap');
-            if (hasNeighborhoodData && data.chart_data) { noMap.classList.add('hidden'); mapContainer.style.display = 'block'; renderMap(data.chart_data); }
+            if (currentMapData && currentMapData.type) { noMap.classList.add('hidden'); mapContainer.style.display = 'block'; renderMap(currentMapData); }
             else { mapContainer.style.display = 'none'; noMap.classList.remove('hidden'); }
 
             const insightsContent = document.getElementById('insightsContent');
             const noInsights = document.getElementById('noInsights');
             if (data.insights) {
                 noInsights.classList.add('hidden'); insightsContent.classList.remove('hidden');
-                const formatted = data.insights.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^\* /gm, '<li>').replace(/^- /gm, '<li>').split('\n').map(line => line.startsWith('<li>') ? line + '</li>' : `<p>${line}</p>`).join('');
+                const escaped = escapeHtml(data.insights);
+                const formatted = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^\* /gm, '<li>').replace(/^- /gm, '<li>').split('\n').map(line => line.startsWith('<li>') ? line + '</li>' : `<p>${line}</p>`).join('');
                 insightsContent.innerHTML = `<ul class="list-disc list-inside space-y-2 text-gray-700">${formatted}</ul>`;
             } else { insightsContent.classList.add('hidden'); noInsights.classList.remove('hidden'); }
 
@@ -1281,8 +1321,8 @@
                     statusHtml = '<div class="flex items-center gap-2 text-green-700 bg-green-50 p-4 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span><strong>Validation Passed:</strong> Results match ground-truth calculations.</span></div>';
                 } else {
                     let items = [];
-                    errors.forEach(e => items.push(`<li class="text-red-700">${e}</li>`));
-                    warnings.forEach(w => items.push(`<li class="text-yellow-700">${w}</li>`));
+                    errors.forEach(e => items.push(`<li class="text-red-700">${escapeHtml(e)}</li>`));
+                    warnings.forEach(w => items.push(`<li class="text-yellow-700">${escapeHtml(w)}</li>`));
                     const bgColor = errors.length > 0 ? 'bg-red-50' : 'bg-yellow-50';
                     statusHtml = `<div class="${bgColor} p-4 rounded-xl"><p class="font-heading font-semibold mb-2">${errors.length > 0 ? 'Validation Issues:' : 'Validation Warnings:'}</p><ul class="list-disc list-inside space-y-1 text-sm">${items.join('')}</ul></div>`;
                 }
@@ -1294,7 +1334,7 @@
                 biasWarnings.forEach(w => {
                     const iconMap = { 'info': { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }, 'warning': { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' }, 'caution': { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' } };
                     const style = iconMap[w.severity] || iconMap['info'];
-                    biasHtml += `<div class="${style.bg} ${style.text} p-4 rounded-xl flex items-start gap-3 mb-2"><svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${style.icon}"></path></svg><div><span class="font-heading font-medium capitalize">${w.type}:</span> <span class="text-sm">${w.message}</span></div></div>`;
+                    biasHtml += `<div class="${style.bg} ${style.text} p-4 rounded-xl flex items-start gap-3 mb-2"><svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${style.icon}"></path></svg><div><span class="font-heading font-medium capitalize">${escapeHtml(w.type)}:</span> <span class="text-sm">${escapeHtml(w.message)}</span></div></div>`;
                 });
                 biasEl.innerHTML = biasHtml;
             } else { biasEl.innerHTML = ''; }
@@ -1306,7 +1346,7 @@
             let html = '';
             citations.forEach(c => {
                 if (!c.name) return;
-                html += `<div class="border border-gray-200 rounded-xl p-5"><h3 class="font-heading font-bold text-charcoal">${c.name}</h3><p class="text-sm text-gray-500 mt-1">Source: <a href="${c.url}" target="_blank" class="text-syracuse-blue hover:underline font-medium">${c.source}</a></p><p class="text-sm text-gray-500">Date Range: ${c.date_range}</p>${c.caveats && c.caveats.length > 0 ? `<div class="mt-3"><p class="text-sm font-heading font-medium text-charcoal">Important Caveats:</p><ul class="list-disc list-inside text-sm text-gray-500 mt-1">${c.caveats.map(caveat => `<li>${caveat}</li>`).join('')}</ul></div>` : ''}</div>`;
+                html += `<div class="border border-gray-200 rounded-xl p-5"><h3 class="font-heading font-bold text-charcoal">${escapeHtml(c.name)}</h3><p class="text-sm text-gray-500 mt-1">Source: <a href="${sanitizeUrl(c.url)}" target="_blank" rel="noopener noreferrer" class="text-syracuse-blue hover:underline font-medium">${escapeHtml(c.source)}</a></p><p class="text-sm text-gray-500">Date Range: ${escapeHtml(c.date_range)}</p>${c.caveats && c.caveats.length > 0 ? `<div class="mt-3"><p class="text-sm font-heading font-medium text-charcoal">Important Caveats:</p><ul class="list-disc list-inside text-sm text-gray-500 mt-1">${c.caveats.map(caveat => `<li>${escapeHtml(caveat)}</li>`).join('')}</ul></div>` : ''}</div>`;
             });
             sourcesEl.innerHTML = html;
         }
@@ -1386,18 +1426,80 @@
             }
         }
 
-        function renderMap(chartData) {
+        function renderMap(mapData) {
             const container = document.getElementById('mapContainer');
             Plotly.purge(container);
-            const neighborhoods = chartData.labels;
-            const values = chartData.values || (chartData.datasets ? chartData.datasets[0].data : []);
-            const lats = [], lons = [], texts = [], sizes = [];
-            const maxVal = Math.max(...values), minSize = 15, maxSize = 50;
-            neighborhoods.forEach((name, idx) => {
-                const coords = NEIGHBORHOOD_COORDS[name];
-                if (coords) { lats.push(coords.lat); lons.push(coords.lon); texts.push(`${name}<br>Count: ${values[idx].toLocaleString()}`); sizes.push(minSize + (values[idx] / maxVal) * (maxSize - minSize)); }
+            const fontConfig = { family: 'Space Grotesk, Inter, sans-serif' };
+            const center = { lat: 43.045, lon: -76.145 };
+
+            if (mapData.type === 'neighborhood_bubble') {
+                renderBubbleMap(container, mapData, fontConfig, center, 11.5);
+            } else if (mapData.type === 'zip_bubble') {
+                if (mapData.color_by) {
+                    renderCategoricalBubbleMap(container, mapData, fontConfig, center, 11.0);
+                } else {
+                    renderBubbleMap(container, mapData, fontConfig, center, 11.0);
+                }
+            } else if (mapData.type === 'point') {
+                renderPointMap(container, mapData, fontConfig, center, 12.0);
+            }
+        }
+
+        function renderBubbleMap(container, mapData, fontConfig, center, zoom) {
+            const maxVal = Math.max(...mapData.values);
+            const minSize = 15, maxSize = 50;
+            const sizes = mapData.values.map(v => minSize + (v / maxVal) * (maxSize - minSize));
+            const texts = mapData.labels.map((label, i) =>
+                `${label}<br>${mapData.value_label || 'Count'}: ${(mapData.values[i] || 0).toLocaleString()}`
+            );
+            Plotly.newPlot(container, [{
+                type: 'scattermapbox', lat: mapData.lats, lon: mapData.lons, mode: 'markers',
+                marker: { size: sizes, color: mapData.values, colorscale: [[0, '#fef3c7'], [0.5, '#f97316'], [1, '#dc2626']], showscale: true, colorbar: { title: mapData.value_label || 'Count', thickness: 15 } },
+                text: texts, hoverinfo: 'text'
+            }], {
+                mapbox: { style: 'carto-positron', center: center, zoom: zoom },
+                margin: { l: 0, r: 0, t: 0, b: 0 }, showlegend: false, font: fontConfig
+            }, { responsive: true });
+        }
+
+        function renderCategoricalBubbleMap(container, mapData, fontConfig, center, zoom) {
+            const maxVal = Math.max(...mapData.values);
+            const minSize = 20, maxSize = 55;
+            const sizes = mapData.values.map(v => minSize + (v / maxVal) * (maxSize - minSize));
+            const texts = mapData.labels.map((label, i) =>
+                `ZIP ${label}<br>${mapData.days[i]}<br>${mapData.value_label || 'Count'}: ${(mapData.values[i] || 0).toLocaleString()}`
+            );
+            // Group by category for legend
+            const categories = {};
+            mapData.labels.forEach((label, i) => {
+                const day = mapData.days[i];
+                if (!categories[day]) categories[day] = { lats: [], lons: [], sizes: [], texts: [], color: mapData.colors[i] };
+                categories[day].lats.push(mapData.lats[i]);
+                categories[day].lons.push(mapData.lons[i]);
+                categories[day].sizes.push(sizes[i]);
+                categories[day].texts.push(texts[i]);
             });
-            Plotly.newPlot(container, [{ type: 'scattermapbox', lat: lats, lon: lons, mode: 'markers', marker: { size: sizes, color: values.filter((_, i) => NEIGHBORHOOD_COORDS[neighborhoods[i]]), colorscale: [[0, '#fef3c7'], [0.5, '#f97316'], [1, '#dc2626']], showscale: true, colorbar: { title: 'Count', thickness: 15 } }, text: texts, hoverinfo: 'text' }], { mapbox: { style: 'carto-positron', center: { lat: 43.045, lon: -76.145 }, zoom: 11.5 }, margin: { l: 0, r: 0, t: 0, b: 0 }, showlegend: false, font: { family: 'Space Grotesk, Inter, sans-serif' } }, { responsive: true });
+            const traces = Object.entries(categories).map(([day, d]) => ({
+                type: 'scattermapbox', lat: d.lats, lon: d.lons, mode: 'markers', name: day,
+                marker: { size: d.sizes, color: d.color }, text: d.texts, hoverinfo: 'text'
+            }));
+            Plotly.newPlot(container, traces, {
+                mapbox: { style: 'carto-positron', center: center, zoom: zoom },
+                margin: { l: 0, r: 0, t: 30, b: 0 }, showlegend: true,
+                legend: { orientation: 'h', y: 1.02, font: { size: 12 } }, font: fontConfig
+            }, { responsive: true });
+        }
+
+        function renderPointMap(container, mapData, fontConfig, center, zoom) {
+            Plotly.newPlot(container, [{
+                type: 'scattermapbox', lat: mapData.lats, lon: mapData.lons, mode: 'markers',
+                marker: { size: 5, color: '#F76900', opacity: 0.6 },
+                text: mapData.texts, hoverinfo: 'text', name: mapData.dataset_label || 'Data'
+            }], {
+                mapbox: { style: 'carto-positron', center: center, zoom: zoom },
+                margin: { l: 0, r: 0, t: 30, b: 0 }, showlegend: false, font: fontConfig,
+                title: { text: `${mapData.dataset_label} (${mapData.point_count.toLocaleString()} points)`, font: { size: 14, family: 'Space Grotesk' } }
+            }, { responsive: true });
         }
 
         // =====================================================

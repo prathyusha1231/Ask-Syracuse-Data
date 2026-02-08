@@ -7,8 +7,12 @@ from __future__ import annotations
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from pydantic import BaseModel, Field
 from pathlib import Path
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import sqlite3
 import uuid
 import datetime
@@ -16,17 +20,41 @@ import pandas as pd
 from openai import OpenAI
 
 from pipeline.main import run_query
+from pipeline.data_utils import SYRACUSE_ZIP_CENTROIDS
 from llm.openai_client import load_api_key
 
 
 # =============================================================================
 # FASTAPI APP
 # =============================================================================
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Ask Syracuse Data",
     description="Natural language interface for Syracuse Open Data",
     version="1.0.0"
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.plot.ly; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self'"
+        )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -142,6 +170,68 @@ DATASET_LABELS = {
     "permit_requests": "Permit Requests",
     "tree_inventory": "Tree Inventory",
     "lead_testing": "Lead Testing",
+}
+
+
+# =============================================================================
+# MAP CONSTANTS
+# =============================================================================
+ZIP_COORDS = {
+    str(z): {"lat": lat, "lon": lon}
+    for z, (lat, lon) in SYRACUSE_ZIP_CENTROIDS.items()
+}
+
+DATASETS_WITH_COORDS = {
+    "crime", "cityline_requests", "parking_violations",
+    "permit_requests", "tree_inventory", "unfit_properties",
+    "historical_properties",
+}
+
+ZIP_GROUP_COLUMNS = {"zip", "complaint_zip"}
+NEIGHBORHOOD_GROUP_COLUMNS = {"neighborhood", "area"}
+
+TRASH_DAY_COLORS = {
+    "Monday": "#2563eb",
+    "Tuesday": "#16a34a",
+    "Wednesday": "#d97706",
+    "Thursday": "#dc2626",
+    "Friday": "#7c3aed",
+    "Not Scheduled": "#9ca3af",
+}
+
+NEIGHBORHOOD_COORDS_PY = {
+    "Northside": (43.075, -76.155),
+    "Brighton": (43.022, -76.147),
+    "Near Westside": (43.045, -76.170),
+    "Eastwood": (43.048, -76.100),
+    "Washington Square": (43.040, -76.135),
+    "Elmwood": (43.025, -76.175),
+    "Southside": (43.030, -76.150),
+    "Park Ave": (43.050, -76.175),
+    "Southwest": (43.020, -76.180),
+    "North Valley": (43.065, -76.135),
+    "Skunk City": (43.010, -76.200),
+    "Lincoln Hill": (43.055, -76.125),
+    "Court-Woodlawn": (43.060, -76.145),
+    "Strathmore": (43.025, -76.115),
+    "Salt Springs": (43.035, -76.095),
+    "Downtown": (43.050, -76.150),
+    "Westcott": (43.040, -76.120),
+    "University Hill": (43.038, -76.135),
+    "Hawley Green": (43.055, -76.140),
+    "Meadowbrook": (43.070, -76.085),
+    "Far Westside": (43.035, -76.195),
+    "Tipp Hill": (43.040, -76.185),
+    "Sedgwick": (43.055, -76.110),
+    "Near Eastside": (43.050, -76.140),
+    "Outer Comstock": (43.035, -76.110),
+    "South Valley": (43.015, -76.140),
+    "University Neighborhood": (43.040, -76.130),
+    "Lakefront": (43.080, -76.180),
+    "Winkworth": (43.005, -76.150),
+    "Franklin Square": (43.055, -76.160),
+    "South Campus": (43.032, -76.130),
+    "Not Recorded": (43.045, -76.150),
 }
 
 
@@ -298,6 +388,195 @@ Use bullet points. Don't repeat raw numbers - interpret them."""
         return response.choices[0].message.content
     except Exception as e:
         return f"Unable to generate insights: {str(e)}"
+
+
+# =============================================================================
+# MAP DATA GENERATION
+# =============================================================================
+def _find_value_column(df: pd.DataFrame, exclude_col: str) -> str | None:
+    """Find the first numeric/metric column that is not the category column."""
+    for col in df.columns:
+        if col == exclude_col:
+            continue
+        if col in ("count", "count_distinct", "primary_count", "secondary_count") \
+                or col.startswith(("avg_", "min_", "max_", "sum_")):
+            return col
+    return None
+
+
+def _build_neighborhood_bubble(df: pd.DataFrame, geo_col: str, value_col: str) -> dict | None:
+    """Build neighborhood bubble map data."""
+    lats, lons, labels, values = [], [], [], []
+    for _, row in df.iterrows():
+        name = str(row[geo_col])
+        coords = NEIGHBORHOOD_COORDS_PY.get(name)
+        if coords:
+            lats.append(coords[0])
+            lons.append(coords[1])
+            labels.append(name)
+            values.append(row[value_col] if not pd.isna(row[value_col]) else 0)
+    if not lats:
+        return None
+    return {
+        "type": "neighborhood_bubble",
+        "lats": lats,
+        "lons": lons,
+        "labels": labels,
+        "values": _safe_list(pd.Series(values)),
+        "value_label": get_readable_column(value_col),
+    }
+
+
+def _build_zip_bubble(df: pd.DataFrame, zip_col: str, value_col: str) -> dict | None:
+    """Build ZIP-level bubble map data."""
+    lats, lons, labels, values = [], [], [], []
+    for _, row in df.iterrows():
+        z = str(int(row[zip_col])) if not pd.isna(row[zip_col]) else None
+        if z and z in ZIP_COORDS:
+            c = ZIP_COORDS[z]
+            lats.append(c["lat"])
+            lons.append(c["lon"])
+            labels.append(z)
+            values.append(row[value_col] if not pd.isna(row[value_col]) else 0)
+    if not lats:
+        return None
+    return {
+        "type": "zip_bubble",
+        "lats": lats,
+        "lons": lons,
+        "labels": labels,
+        "values": _safe_list(pd.Series(values)),
+        "value_label": get_readable_column(value_col),
+    }
+
+
+def _build_trash_zip_map(raw_df: pd.DataFrame) -> dict | None:
+    """Build trash pickup ZIP map with day-colored bubbles from raw data."""
+    if "zip" not in raw_df.columns or "sanitation" not in raw_df.columns:
+        return None
+
+    # Count addresses per (zip, sanitation day)
+    grouped = raw_df.groupby(["zip", "sanitation"]).size().reset_index(name="cnt")
+
+    # For each ZIP, find the dominant day (most addresses)
+    idx = grouped.groupby("zip")["cnt"].idxmax()
+    dominant = grouped.loc[idx]
+
+    # Total count per ZIP
+    zip_totals = raw_df.groupby("zip").size().reset_index(name="total")
+    merged = dominant.merge(zip_totals, on="zip", how="left")
+
+    lats, lons, labels, values, colors, days = [], [], [], [], [], []
+    for _, row in merged.iterrows():
+        z = str(int(row["zip"])) if not pd.isna(row["zip"]) else None
+        if not z or z not in ZIP_COORDS:
+            continue
+        c = ZIP_COORDS[z]
+        lats.append(c["lat"])
+        lons.append(c["lon"])
+        labels.append(z)
+        values.append(int(row["total"]))
+        day = str(row["sanitation"])
+        days.append(day)
+        colors.append(TRASH_DAY_COLORS.get(day, "#6b7280"))
+
+    if not lats:
+        return None
+    return {
+        "type": "zip_bubble",
+        "lats": lats,
+        "lons": lons,
+        "labels": labels,
+        "values": values,
+        "colors": colors,
+        "days": days,
+        "value_label": "Properties",
+        "color_by": "sanitation",
+        "color_legend": TRASH_DAY_COLORS,
+    }
+
+
+def _build_point_map(raw_df: pd.DataFrame, dataset: str, limit: int = 2000) -> dict | None:
+    """Build a point scatter map from raw row-level lat/long data."""
+    valid = raw_df[raw_df["latitude"].notna() & raw_df["longitude"].notna()].head(limit)
+    if valid.empty:
+        return None
+
+    lats = _safe_list(valid["latitude"])
+    lons = _safe_list(valid["longitude"])
+
+    # Build hover text from a meaningful column
+    text_col = None
+    for candidate in ["address", "location", "full_address", "description",
+                       "spp_com", "category", "property_address"]:
+        if candidate in valid.columns:
+            text_col = candidate
+            break
+
+    texts = []
+    for _, row in valid.iterrows():
+        t = str(row[text_col]) if text_col and not pd.isna(row.get(text_col)) else ""
+        texts.append(t)
+
+    return {
+        "type": "point",
+        "lats": lats,
+        "lons": lons,
+        "texts": texts,
+        "dataset_label": DATASET_LABELS.get(dataset, dataset),
+        "point_count": len(valid),
+    }
+
+
+def generate_map_data(df: pd.DataFrame, metadata: dict, raw_df=None) -> dict | None:
+    """Generate map visualization data based on query results and metadata."""
+    query_type = metadata.get("query_type", "single")
+    dataset = metadata.get("dataset", "")
+    group_by_str = metadata.get("group_by")
+
+    # Parse group_by to a list
+    if group_by_str:
+        group_by_list = [g.strip() for g in str(group_by_str).split(",")]
+    else:
+        group_by_list = []
+
+    # Skip map for multi group-by where first col isn't geographic
+    first_group = group_by_list[0] if group_by_list else None
+
+    # Case 1: Neighborhood bubble map
+    if first_group and first_group in NEIGHBORHOOD_GROUP_COLUMNS and first_group in df.columns:
+        value_col = _find_value_column(df, first_group)
+        if value_col:
+            return _build_neighborhood_bubble(df, first_group, value_col)
+
+    # Case 2: ZIP bubble map
+    zip_col = None
+    if first_group and first_group in ZIP_GROUP_COLUMNS:
+        zip_col = first_group
+    # Also check join queries grouped by zip
+    if query_type == "join" and metadata.get("join_type") in ("zip",):
+        for col in df.columns:
+            if col in ZIP_GROUP_COLUMNS:
+                zip_col = col
+                break
+
+    if zip_col and zip_col in df.columns:
+        # Special case: trash_pickup → show collection day colors
+        if dataset == "trash_pickup" and raw_df is not None and "sanitation" in raw_df.columns:
+            return _build_trash_zip_map(raw_df)
+        value_col = _find_value_column(df, zip_col)
+        if value_col:
+            return _build_zip_bubble(df, zip_col, value_col)
+
+    # Case 3: Point map for ungrouped queries on datasets with lat/long
+    if (not group_by_list
+            and dataset in DATASETS_WITH_COORDS
+            and raw_df is not None
+            and "latitude" in raw_df.columns
+            and "longitude" in raw_df.columns):
+        return _build_point_map(raw_df, dataset)
+
+    return None
 
 
 # =============================================================================
@@ -509,7 +788,7 @@ def get_citation_text(dataset: str) -> dict:
 # REQUEST/RESPONSE MODELS
 # =============================================================================
 class QueryRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=500)
 
 
 class QueryResponse(BaseModel):
@@ -519,6 +798,7 @@ class QueryResponse(BaseModel):
     columns: list[str] | None = None
     data: list[dict] | None = None
     chart_data: dict | None = None
+    map_data: dict | None = None
     insights: str | None = None
     sql: str | None = None
     metadata: dict | None = None
@@ -548,7 +828,8 @@ async def home(request: Request):
 
 
 @app.post("/api/query", response_model=QueryResponse)
-async def query_data(req: QueryRequest):
+@limiter.limit("20/minute")
+async def query_data(request: Request, req: QueryRequest):
     """Process a natural language query."""
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
@@ -652,6 +933,10 @@ async def query_data(req: QueryRequest):
                     "y_label": get_readable_column(value_cols[0], metadata),
                 }
 
+    # Generate map data
+    raw_df = result.get("raw_df")
+    map_data = generate_map_data(df, metadata, raw_df=raw_df)
+
     # Generate description
     description = generate_description(df, metadata)
 
@@ -683,6 +968,7 @@ async def query_data(req: QueryRequest):
         columns=columns,
         data=formatted_data,
         chart_data=chart_data,
+        map_data=map_data,
         insights=insights,
         sql=result.get("sql"),
         metadata=metadata,
@@ -694,43 +980,52 @@ async def query_data(req: QueryRequest):
 
 
 @app.post("/api/feedback")
-async def submit_feedback(req: FeedbackRequest):
+@limiter.limit("30/minute")
+async def submit_feedback(request: Request, req: FeedbackRequest):
     """Record user feedback on a query result."""
     if req.rating not in ("up", "down"):
         raise HTTPException(status_code=400, detail="Rating must be 'up' or 'down'")
 
-    conn = sqlite3.connect(FEEDBACK_DB)
-    conn.execute(
-        "INSERT INTO feedback (query_id, timestamp, question, rating, comment, sql_query, dataset) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (
-            req.query_id,
-            datetime.datetime.utcnow().isoformat(),
-            req.question,
-            req.rating,
-            req.comment,
-            req.sql,
-            req.dataset,
-        ),
-    )
-    conn.commit()
-    conn.close()
-    return {"success": True, "message": "Feedback recorded"}
+    try:
+        conn = sqlite3.connect(FEEDBACK_DB)
+        conn.execute(
+            "INSERT INTO feedback (query_id, timestamp, question, rating, comment, sql_query, dataset) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                req.query_id,
+                datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                req.question,
+                req.rating,
+                req.comment,
+                req.sql,
+                req.dataset,
+            ),
+        )
+        conn.commit()
+        return {"success": True, "message": "Feedback recorded"}
+    except sqlite3.Error:
+        raise HTTPException(status_code=500, detail="Failed to record feedback")
+    finally:
+        conn.close()
 
 
 @app.get("/api/feedback/stats")
 async def feedback_stats():
     """Return feedback statistics."""
-    conn = sqlite3.connect(FEEDBACK_DB)
-    conn.row_factory = sqlite3.Row
-    total = conn.execute("SELECT COUNT(*) as n FROM feedback").fetchone()["n"]
-    thumbs_up = conn.execute("SELECT COUNT(*) as n FROM feedback WHERE rating='up'").fetchone()["n"]
-    thumbs_down = conn.execute("SELECT COUNT(*) as n FROM feedback WHERE rating='down'").fetchone()["n"]
-    recent_rows = conn.execute(
-        "SELECT query_id, timestamp, question, rating, comment FROM feedback ORDER BY id DESC LIMIT 10"
-    ).fetchall()
-    conn.close()
-    recent = [dict(r) for r in recent_rows]
-    return {"total": total, "thumbs_up": thumbs_up, "thumbs_down": thumbs_down, "recent": recent}
+    try:
+        conn = sqlite3.connect(FEEDBACK_DB)
+        conn.row_factory = sqlite3.Row
+        total = conn.execute("SELECT COUNT(*) as n FROM feedback").fetchone()["n"]
+        thumbs_up = conn.execute("SELECT COUNT(*) as n FROM feedback WHERE rating='up'").fetchone()["n"]
+        thumbs_down = conn.execute("SELECT COUNT(*) as n FROM feedback WHERE rating='down'").fetchone()["n"]
+        recent_rows = conn.execute(
+            "SELECT query_id, timestamp, question, rating, comment FROM feedback ORDER BY id DESC LIMIT 10"
+        ).fetchall()
+        recent = [dict(r) for r in recent_rows]
+        return {"total": total, "thumbs_up": thumbs_up, "thumbs_down": thumbs_down, "recent": recent}
+    except sqlite3.Error:
+        raise HTTPException(status_code=500, detail="Failed to retrieve feedback stats")
+    finally:
+        conn.close()
 
 
 @app.get("/api/health")

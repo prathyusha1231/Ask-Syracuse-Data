@@ -6,8 +6,15 @@ Includes validation against ground-truth and bias detection.
 """
 from __future__ import annotations
 import sys
+import time
+import logging
 import duckdb
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+logger = logging.getLogger(__name__)
+
+SQL_TIMEOUT_SECONDS = 30
 
 from . import schema
 from .data_utils import (
@@ -62,7 +69,22 @@ LOADERS = {
 }
 
 # Cache for loaded dataframes (for validation)
+# Entries: {dataset_name: (dataframe, load_timestamp)}
 _df_cache = {}
+_CACHE_TTL_SECONDS = 3600  # Reload data after 1 hour
+
+
+def _get_cached_df(name: str, loader):
+    """Get a DataFrame from cache, reloading if TTL expired."""
+    now = time.time()
+    if name in _df_cache:
+        df, loaded_at = _df_cache[name]
+        if now - loaded_at < _CACHE_TTL_SECONDS:
+            return df
+        logger.info("Cache expired for %s, reloading", name)
+    df = loader()
+    _df_cache[name] = (df, now)
+    return df
 
 
 def _make_error_response(error: str, **kwargs) -> dict:
@@ -79,20 +101,37 @@ def _make_error_response(error: str, **kwargs) -> dict:
     }
 
 
+def _execute_sql_with_timeout(conn, sql: str, timeout: int = SQL_TIMEOUT_SECONDS) -> pd.DataFrame:
+    """Execute SQL on a DuckDB connection with a timeout guard."""
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(lambda: conn.execute(sql).df())
+        try:
+            return future.result(timeout=timeout)
+        except FuturesTimeoutError:
+            conn.close()
+            raise TimeoutError(
+                f"SQL query exceeded {timeout}s timeout. Try a simpler question."
+            )
+
+
 def run_query(question: str) -> dict:
     """Run the full pipeline and return a structured response."""
+    t0 = time.perf_counter()
+    logger.info("Query received: %s", question[:200])
     llm_fn = None
     api_key = load_api_key()
     if api_key:
         try:
             llm_fn = make_openai_intent_llm()
         except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to initialize LLM client")
             return _make_error_response(f"Unable to initialize LLM client: {exc}")
 
     raw_intent = None
     try:
         raw_intent = parse_intent(question, llm=llm_fn)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Failed to parse intent for: %s", question)
         note = " (GPT disabled; set OPENAI_API_KEY to enable)" if llm_fn is None else ""
         return _make_error_response(f"Unable to parse intent: {exc}{note}", intent=raw_intent)
 
@@ -114,6 +153,16 @@ def run_query(question: str) -> dict:
         )
         response["bias_warnings"] = bias_result.to_list()
 
+    elapsed = time.perf_counter() - t0
+    path = response.get("metadata", {}).get("query_type", "unknown")
+    rows = response.get("metadata", {}).get("row_count", 0)
+    status = "error" if response.get("error") else "ok"
+    logger.info(
+        "Query complete: path=%s status=%s rows=%s time=%.2fs sql=%s",
+        path, status, rows, elapsed,
+        (response.get("sql") or "")[:120],
+    )
+
     return response
 
 
@@ -131,6 +180,7 @@ def _run_single_query(raw_intent: dict) -> dict:
     try:
         intent = schema.validate_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Schema validation failed")
         return _make_error_response(f"Validation failed: {exc}", intent=raw_intent)
 
     dataset = intent["dataset"]
@@ -142,16 +192,15 @@ def _run_single_query(raw_intent: dict) -> dict:
         )
 
     try:
-        # Load data (cache for validation)
-        if dataset not in _df_cache:
-            _df_cache[dataset] = loader()
-        df = _df_cache[dataset]
+        # Load data (cache with TTL for validation)
+        df = _get_cached_df(dataset, loader)
 
         conn = duckdb.connect(database=":memory:")
         conn.register(cfg["table"], df)
         sql = build_select_sql(intent, cfg)
-        result_df = conn.execute(sql).df()
+        result_df = _execute_sql_with_timeout(conn, sql)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("SQL execution failed for single query")
         return _make_error_response(
             f"Failed to execute SQL: {exc}",
             intent=intent,
@@ -161,7 +210,7 @@ def _run_single_query(raw_intent: dict) -> dict:
 
     limitations = (
         "Static CSV snapshots only; DuckDB queries are deterministic. "
-        "LLM used only for intent parsing; it never accesses data."
+        "If LLM was used, it was only for intent parsing; it never accesses data directly."
     )
 
     metadata = {
@@ -184,6 +233,7 @@ def _run_single_query(raw_intent: dict) -> dict:
 
     return {
         "result": result_df,
+        "raw_df": df,
         "intent": intent,
         "metadata": metadata,
         "limitations": limitations,
@@ -199,6 +249,7 @@ def _run_join_query(raw_intent: dict) -> dict:
     try:
         intent = schema.validate_join_intent(raw_intent)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Join validation failed")
         return _make_error_response(f"Join validation failed: {exc}", intent=raw_intent)
 
     primary = intent["primary_dataset"]
@@ -213,6 +264,7 @@ def _run_join_query(raw_intent: dict) -> dict:
     try:
         join_info = schema.get_join_config(primary, secondary)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Join config lookup failed for %s + %s", primary, secondary)
         return _make_error_response(f"Join config error: {exc}", intent=intent)
 
     # Find the correct join key config
@@ -243,22 +295,18 @@ def _run_join_query(raw_intent: dict) -> dict:
         )
 
     try:
-        # Load data (cache for validation)
-        if primary not in _df_cache:
-            _df_cache[primary] = primary_loader()
-        if secondary not in _df_cache:
-            _df_cache[secondary] = secondary_loader()
-
-        primary_df = _df_cache[primary]
-        secondary_df = _df_cache[secondary]
+        # Load data (cache with TTL for validation)
+        primary_df = _get_cached_df(primary, primary_loader)
+        secondary_df = _get_cached_df(secondary, secondary_loader)
 
         conn = duckdb.connect(database=":memory:")
         conn.register(primary_cfg["table"], primary_df)
         conn.register(secondary_cfg["table"], secondary_df)
 
         sql = build_join_sql(intent, primary_cfg, secondary_cfg, join_key_config)
-        result_df = conn.execute(sql).df()
+        result_df = _execute_sql_with_timeout(conn, sql)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Join SQL execution failed")
         return _make_error_response(
             f"Failed to execute join SQL: {exc}",
             intent=intent,
@@ -268,7 +316,7 @@ def _run_join_query(raw_intent: dict) -> dict:
     limitations = (
         f"Cross-dataset join via {join_type}. Static CSV snapshots only. "
         f"Join may exclude records with missing/null {join_type} values. "
-        "LLM used only for intent parsing; it never accesses data."
+        "If LLM was used, it was only for intent parsing; it never accesses data directly."
     )
 
     metadata = {
@@ -293,6 +341,7 @@ def _run_join_query(raw_intent: dict) -> dict:
 
     return {
         "result": result_df,
+        "raw_df": _df_cache.get(primary),
         "intent": intent,
         "metadata": metadata,
         "limitations": limitations,
@@ -317,6 +366,7 @@ def _run_advanced_query(question: str) -> dict:
         prompt = NL_TO_SQL_PROMPT.format(question=question)
         raw_sql = sql_llm(prompt)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("LLM SQL generation failed")
         return _make_error_response(f"Failed to generate SQL: {exc}")
 
     # Validate and sanitize SQL
@@ -332,12 +382,11 @@ def _run_advanced_query(question: str) -> dict:
     try:
         conn = duckdb.connect(database=":memory:")
         for name, loader in LOADERS.items():
-            if name not in _df_cache:
-                _df_cache[name] = loader()
-            conn.register(name, _df_cache[name])
+            conn.register(name, _get_cached_df(name, loader))
 
-        result_df = conn.execute(sql).df()
+        result_df = _execute_sql_with_timeout(conn, sql)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Advanced SQL execution failed")
         return _make_error_response(
             f"Failed to execute advanced SQL: {exc}", sql=sql
         )

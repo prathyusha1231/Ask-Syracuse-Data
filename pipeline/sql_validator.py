@@ -154,6 +154,13 @@ def validate_sql(sql: str) -> str:
     if not sql:
         raise SQLValidationError("Empty SQL query.")
 
+    # Reject multi-statement SQL (semicolons inside string literals are rare in analytics)
+    stripped = sql.rstrip().rstrip(";")
+    if ";" in stripped:
+        raise SQLValidationError(
+            "Multi-statement SQL is not allowed (semicolons detected)."
+        )
+
     # Normalize whitespace for checks
     sql_upper = sql.upper().strip()
 
