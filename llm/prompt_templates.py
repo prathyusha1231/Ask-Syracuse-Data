@@ -32,25 +32,28 @@ Available datasets:
 - vacant_properties: Vacant property records (group_by: neighborhood, zip, vpr_valid, vpr_result, year, month, quarter)
 - crime: Part 1 & 2 crime data 2022-2025 (group_by: code_defined, arrest, neighborhood, zip, year, month, quarter, crime_part)
 - rental_registry: Rental property records (group_by: zip, completion_type_name, rrisvalid, year, month)
-- unfit_properties: Properties deemed unfit for habitation (group_by: zip, status_type_name, violation, vacant, year, month)
+- unfit_properties: Properties deemed unfit for habitation (group_by: zip, status_type_name, violation, department_name, complaint_type_name, year, month)
 - trash_pickup: Trash collection schedule (group_by: zip, sanitation, recyclingw)
 - historical_properties: Historically significant properties (group_by: zip, lpss, nr_eligible; nr_eligible values: "NR Listed", "NR Eligible (SHPO)"; lpss values: "Local Protected Site or Local District", "Eligible/Architecturally Significant")
-- assessment_roll: Property assessments with values (group_by: prop_class_description, property_city)
-- cityline_requests: SYRCityline 311 service requests (group_by: zip, category, agency_name, year, month)
+- assessment_roll: Property assessments with values (group_by: prop_class_description, property_city, zip)
+- cityline_requests: SYRCityline 311 service requests (group_by: zip, category, agency_name, report_source, year, month)
 - snow_routes: Emergency snow route road segments (group_by: zip)
 - bike_suitability: Bike suitability ratings by road (group_by: bike_suitability_19)
 - bike_infrastructure: Bike lanes/trails/paths (group_by: infrastructure_type)
-- parking_violations: Parking tickets (group_by: zip, description, status, year, month)
+- parking_violations: Parking tickets with fine amounts (group_by: zip, description, status, year, month)
 - permit_requests: Building permits (group_by: zip, permit_type, year, month)
 - tree_inventory: City tree inventory (group_by: zip, area, spp_com)
-- lead_testing: Lead testing by census tract (group_by: census_tract)
+- lead_testing: Lead testing by census tract (group_by: census_tract, year)
 
-Computed columns (for avg/min/max metrics):
+Computed columns (for avg/min/max/sum metrics):
 - violations: days_to_comply (avg days from violation to compliance deadline), days_open (avg days from open to status change)
 - vacant_properties: cert_duration_days (days from completion to valid_until)
 - assessment_roll: total_assessment (property assessed value)
 - tree_inventory: dbh (tree diameter at breast height)
 - bike_infrastructure: length_mi (trail/lane length in miles, supports sum metric)
+- parking_violations: amount (fine amount in dollars, supports avg/min/max/sum)
+- cityline_requests: minutes_to_close (minutes to close a request, supports avg/min/max)
+- lead_testing: pct_elevated (percent of tested children with elevated lead levels)
 
 Distinct columns (for count_distinct):
 - violations: sbl, complaint_address, neighborhood, complaint_zip
@@ -153,7 +156,7 @@ Group-by fields per dataset:
 - vacant_properties: neighborhood, zip, vpr_valid, vpr_result
 - crime: code_defined, arrest, neighborhood, zip
 - rental_registry: zip, completion_type_name, rrisvalid
-- unfit_properties: zip, status_type_name, violation, vacant
+- unfit_properties: zip, status_type_name, violation, department_name, complaint_type_name
 
 Examples:
 Q: "Which zip codes have rental properties with code violations?"
@@ -188,13 +191,13 @@ Available tables and columns:
 - rental_registry: sbl, propertyaddress, zip, completion_date, valid_until,
   completion_type_name, rrisvalid
 - unfit_properties: complaint_number, address, zip, sbl, violation, violation_date,
-  status_type_name, vacant, owner_name
+  status_type_name, department_name, complaint_type_name, owner_name
 - trash_pickup: sbl, fulladdres, zip, sanitation, recyclingw
 - historical_properties: sbl, property_address, zip, lpss, nr_eligible
 - assessment_roll: sbl, property_address, property_class, prop_class_description,
-  total_assessment, primary_owner, property_city
+  total_assessment, primary_owner, property_city, zip
 - cityline_requests: id, address, agency_name, request_type, category,
-  created_at_local, closed_at_local, minutes_to_acknowledge, minutes_to_close, zip
+  created_at_local, closed_at_local, minutes_to_acknowledge, minutes_to_close, report_source, zip
 - snow_routes: streetname, zip
 - bike_suitability: name, bike_suitability_19
 - bike_infrastructure: infrastructure_type, trail_name, length_mi

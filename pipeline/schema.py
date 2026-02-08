@@ -155,10 +155,10 @@ DATASETS: Dict[str, Dict[str, Any]] = {
         "date_column": None,
         "allowed_metrics": ["count", "count_distinct", "avg", "min", "max"],
         "allowed_group_by": [
-            "prop_class_description", "property_city",
+            "prop_class_description", "property_city", "zip",
         ],
         "allowed_filters": {
-            "property_class": "text", "prop_class_description": "text",
+            "property_class": "text", "prop_class_description": "text", "zip": "text",
         },
         "allowed_distinct_columns": ["sbl", "property_address"],
         "computed_columns": {
@@ -173,16 +173,23 @@ DATASETS: Dict[str, Dict[str, Any]] = {
     "cityline_requests": {
         "table": "cityline_requests",
         "date_column": "created_at_local",
-        "allowed_metrics": ["count", "count_distinct"],
+        "allowed_metrics": ["count", "count_distinct", "avg", "min", "max"],
         "allowed_group_by": [
-            "zip", "category", "agency_name",
+            "zip", "category", "agency_name", "report_source",
             "year", "month",
         ],
         "allowed_filters": {
-            "year": "int", "zip": "text", "category": "text", "agency_name": "text",
+            "year": "int", "zip": "text", "category": "text",
+            "agency_name": "text", "report_source": "text",
         },
         "allowed_distinct_columns": ["id", "address"],
-        "computed_columns": {},
+        "computed_columns": {
+            "minutes_to_close": {
+                "expr": "minutes_to_close",
+                "type": "numeric",
+                "null_filter": "minutes_to_close IS NOT NULL",
+            },
+        },
         "temporal_group_map": {
             "year": ("created_at_local", "year"),
             "month": ("created_at_local", "month"),
@@ -288,7 +295,7 @@ DATASETS: Dict[str, Dict[str, Any]] = {
         "allowed_filters": {
             "zip": "text", "area": "text", "spp_com": "text",
         },
-        "allowed_distinct_columns": ["id"],
+        "allowed_distinct_columns": ["id", "spp_com"],
         "computed_columns": {
             "dbh": {
                 "expr": "dbh",
