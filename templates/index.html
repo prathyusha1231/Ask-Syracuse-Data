@@ -87,9 +87,9 @@
         }
         .dataset-card {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
+            will-change: transform;
         }
         .dataset-card:hover {
-            transform: translateY(-4px);
             box-shadow: 0 8px 24px rgba(0,0,0,0.12);
         }
         #dataTable tbody tr {
@@ -116,6 +116,121 @@
         }
         .chevron-icon.rotated {
             transform: rotate(180deg);
+        }
+
+        /* Enhancement 2: Staggered table row entrance */
+        @keyframes rowFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .row-animate {
+            animation: rowFadeIn 0.3s ease-out forwards;
+            opacity: 0;
+        }
+
+        /* Enhancement 3: Tab transitions */
+        .tab-content {
+            transition: opacity 0.2s ease;
+        }
+        .tab-hidden {
+            opacity: 0;
+            position: absolute;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        .tab-visible {
+            opacity: 1;
+            position: relative;
+            pointer-events: auto;
+            visibility: visible;
+        }
+        .tab-underline {
+            position: absolute;
+            bottom: 0;
+            height: 3px;
+            background: #F76900;
+            transition: left 0.3s ease, width 0.3s ease;
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* Enhancement 4: Skeleton loading */
+        @keyframes shimmer {
+            0% { background-position: -400px 0; }
+            100% { background-position: 400px 0; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 800px 100%;
+            animation: shimmer 1.5s infinite linear;
+            border-radius: 8px;
+        }
+        .skeleton-row {
+            height: 40px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+        }
+        .skeleton-desc {
+            height: 56px;
+            margin-bottom: 16px;
+            border-radius: 12px;
+        }
+
+        /* Enhancement 5: Feedback button micro-interactions */
+        @keyframes btnPop {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1.0); }
+        }
+        .btn-pop {
+            animation: btnPop 0.3s ease-out;
+        }
+        .feedback-comment-wrap {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease-out, opacity 0.25s ease-out;
+            opacity: 0;
+        }
+        .feedback-comment-wrap.open {
+            max-height: 200px;
+            opacity: 1;
+            transition: max-height 0.4s ease-in, opacity 0.3s ease-in;
+        }
+        .feedback-thanks {
+            opacity: 0;
+            transition: opacity 0.4s ease-in;
+        }
+        .feedback-thanks.visible {
+            opacity: 1;
+        }
+
+        /* Enhancement 6: Floating scroll-to-search button */
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #F76900;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(247, 105, 0, 0.4);
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.3s ease, transform 0.3s ease, background-color 0.2s ease;
+            pointer-events: none;
+            z-index: 50;
+        }
+        .scroll-top-btn.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .scroll-top-btn:hover {
+            background: #e05e00;
         }
     </style>
 </head>
@@ -211,9 +326,18 @@
     <!-- ============================================================ -->
     <section class="max-w-7xl mx-auto px-6 py-10 space-y-8">
 
-        <!-- Loading State — Progressive Steps -->
+        <!-- Loading State — Progressive Steps + Skeleton -->
         <div id="loading" class="hidden">
             <div class="bg-white rounded-2xl shadow-md p-8">
+                <!-- Skeleton preview -->
+                <div class="mb-6">
+                    <div class="skeleton skeleton-desc"></div>
+                    <div class="skeleton skeleton-row" style="width: 100%"></div>
+                    <div class="skeleton skeleton-row" style="width: 92%"></div>
+                    <div class="skeleton skeleton-row" style="width: 97%"></div>
+                    <div class="skeleton skeleton-row" style="width: 85%"></div>
+                    <div class="skeleton skeleton-row" style="width: 90%"></div>
+                </div>
                 <div class="max-w-md mx-auto space-y-4" id="loadingSteps">
                     <!-- Steps injected by JS -->
                 </div>
@@ -258,13 +382,13 @@
                             <svg class="w-5 h-5 text-gray-400 group-hover:text-red-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z M20 2h2v11h-2V2z"></path></svg>
                         </button>
                     </div>
-                    <div id="feedbackComment" class="hidden mt-3">
+                    <div id="feedbackComment" class="feedback-comment-wrap mt-3">
                         <textarea id="feedbackText" class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-syracuse-orange/30 outline-none resize-none" rows="2" placeholder="Tell us more (optional)..."></textarea>
                         <div class="flex justify-end mt-2">
                             <button onclick="sendFeedbackComment()" id="feedbackSubmitBtn" class="bg-syracuse-blue hover:bg-syracuse-blue-dark text-white px-5 py-2 rounded-lg text-sm font-heading font-semibold transition">Submit</button>
                         </div>
                     </div>
-                    <div id="feedbackThanks" class="hidden flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                    <div id="feedbackThanks" class="feedback-thanks flex items-center gap-2 text-emerald-600 text-sm font-medium" style="display:none;">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                         Thank you for your feedback!
                     </div>
@@ -274,8 +398,8 @@
             <!-- Tabs -->
             <div class="bg-white rounded-2xl shadow-md overflow-hidden">
                 <div class="border-b-2 border-gray-100">
-                    <nav class="flex overflow-x-auto">
-                        <button onclick="showTab('data')" id="tab-data" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-syracuse-orange border-b-3 border-syracuse-orange whitespace-nowrap">
+                    <nav id="tabNav" class="flex overflow-x-auto relative">
+                        <button onclick="showTab('data')" id="tab-data" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-syracuse-orange whitespace-nowrap">
                             Data
                         </button>
                         <button onclick="showTab('chart')" id="tab-chart" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
@@ -296,12 +420,13 @@
                         <button onclick="showTab('sources')" id="tab-sources" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
                             Sources
                         </button>
+                        <div id="tabUnderline" class="tab-underline"></div>
                     </nav>
                 </div>
 
                 <!-- Tab Content -->
-                <div class="p-6">
-                    <div id="content-data" class="tab-content">
+                <div class="p-6 relative">
+                    <div id="content-data" class="tab-content tab-visible">
                         <div class="overflow-x-auto">
                             <table id="dataTable" class="w-full text-left">
                                 <thead id="tableHead" class="bg-syracuse-blue text-white text-xs font-heading uppercase tracking-wider"></thead>
@@ -309,28 +434,28 @@
                             </table>
                         </div>
                     </div>
-                    <div id="content-chart" class="tab-content hidden">
+                    <div id="content-chart" class="tab-content tab-hidden">
                         <div id="chartContainer" style="width:100%; height:450px;"></div>
                         <p id="noChart" class="text-gray-400 text-center py-8 hidden font-heading">Chart not available for this query type.</p>
                     </div>
-                    <div id="content-map" class="tab-content hidden">
+                    <div id="content-map" class="tab-content tab-hidden">
                         <div id="mapContainer" style="width:100%; height:450px;"></div>
                         <p id="noMap" class="text-gray-400 text-center py-8 hidden font-heading">Map not available for this query.</p>
                     </div>
-                    <div id="content-insights" class="tab-content hidden">
+                    <div id="content-insights" class="tab-content tab-hidden">
                         <div id="insightsContent" class="prose max-w-none"></div>
                         <p id="noInsights" class="text-gray-400 text-center py-8 hidden font-heading">Set OPENAI_API_KEY to enable AI-powered insights.</p>
                     </div>
-                    <div id="content-sql" class="tab-content hidden">
+                    <div id="content-sql" class="tab-content tab-hidden">
                         <pre id="sqlCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
                     </div>
-                    <div id="content-validation" class="tab-content hidden">
+                    <div id="content-validation" class="tab-content tab-hidden">
                         <div id="validationContent" class="space-y-4">
                             <div id="validationStatus" class="p-4 rounded-xl"></div>
                             <div id="biasWarnings" class="space-y-2"></div>
                         </div>
                     </div>
-                    <div id="content-sources" class="tab-content hidden">
+                    <div id="content-sources" class="tab-content tab-hidden">
                         <div id="sourcesContent" class="space-y-4"></div>
                         <div class="mt-6 p-5 bg-syracuse-blue/5 rounded-xl border border-syracuse-blue/10">
                             <p class="text-sm text-gray-600">
@@ -729,6 +854,13 @@
         </div>
     </footer>
 
+    <!-- Enhancement 6: Floating scroll-to-search button -->
+    <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToSearch()" title="Back to search">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+        </svg>
+    </button>
+
     <script>
         // =====================================================
         // TYPEWRITER
@@ -902,21 +1034,55 @@
         let currentSql = null;
         let currentDataset = null;
         let feedbackRating = null;
+        let chartAnimationPending = false;
+        let chartRealData = null;
 
         // =====================================================
-        // TABS
+        // TABS (Enhanced with sliding underline + fade)
         // =====================================================
+        function moveUnderline(tabBtn) {
+            const underline = document.getElementById('tabUnderline');
+            const nav = document.getElementById('tabNav');
+            if (!underline || !nav || !tabBtn) return;
+            const navRect = nav.getBoundingClientRect();
+            const btnRect = tabBtn.getBoundingClientRect();
+            underline.style.left = (btnRect.left - navRect.left + nav.scrollLeft) + 'px';
+            underline.style.width = btnRect.width + 'px';
+        }
+
         function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // Fade out current visible tab
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('tab-visible');
+                el.classList.add('tab-hidden');
+            });
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('text-syracuse-orange', 'border-b-3', 'border-syracuse-orange');
+                el.classList.remove('text-syracuse-orange');
                 el.classList.add('text-gray-400');
             });
-            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+
+            // Fade in target tab
+            const target = document.getElementById(`content-${tabName}`);
+            target.classList.remove('tab-hidden');
+            target.classList.add('tab-visible');
+
             const tabBtn = document.getElementById(`tab-${tabName}`);
-            tabBtn.classList.add('text-syracuse-orange', 'border-b-3', 'border-syracuse-orange');
+            tabBtn.classList.add('text-syracuse-orange');
             tabBtn.classList.remove('text-gray-400');
-            if (tabName === 'chart') setTimeout(() => Plotly.Plots.resize('chartContainer'), 100);
+
+            // Slide underline
+            moveUnderline(tabBtn);
+
+            if (tabName === 'chart') {
+                setTimeout(() => {
+                    Plotly.Plots.resize('chartContainer');
+                    // Enhancement 8: Animate chart on first view
+                    if (chartAnimationPending && chartRealData) {
+                        animateChartIn(chartRealData);
+                        chartAnimationPending = false;
+                    }
+                }, 100);
+            }
             if (tabName === 'map') setTimeout(() => Plotly.Plots.resize('mapContainer'), 100);
         }
 
@@ -965,9 +1131,62 @@
             document.getElementById('errorMessage').textContent = message;
         }
 
+        // =====================================================
+        // Enhancement 1: Count-Up Animation
+        // =====================================================
+        function setDescriptionWithCountUp(el, text) {
+            // Find the first number (with optional commas) in the text
+            const match = text.match(/(\d[\d,]*)/);
+            if (!match) {
+                el.textContent = text;
+                return;
+            }
+            const numStr = match[1];
+            const targetNum = parseInt(numStr.replace(/,/g, ''), 10);
+            if (isNaN(targetNum) || targetNum === 0) {
+                el.textContent = text;
+                return;
+            }
+
+            const before = text.substring(0, match.index);
+            const after = text.substring(match.index + numStr.length);
+
+            // Create span for the number
+            el.innerHTML = '';
+            el.appendChild(document.createTextNode(before));
+            const numSpan = document.createElement('span');
+            numSpan.textContent = '0';
+            el.appendChild(numSpan);
+            el.appendChild(document.createTextNode(after));
+
+            // Animate
+            const duration = 800;
+            const startTime = performance.now();
+            function tick(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                // Ease-out cubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = Math.round(eased * targetNum);
+                numSpan.textContent = current.toLocaleString();
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // =====================================================
+        // DISPLAY RESULTS
+        // =====================================================
         function displayResults(data) {
             document.getElementById('results').classList.remove('hidden');
-            document.getElementById('resultDescription').textContent = data.description || 'Query completed';
+
+            // Enhancement 1: Count-up on description
+            setDescriptionWithCountUp(
+                document.getElementById('resultDescription'),
+                data.description || 'Query completed'
+            );
             document.getElementById('limitations').textContent = data.limitations || '';
 
             // Reset feedback UI
@@ -976,8 +1195,9 @@
             currentDataset = data.metadata && data.metadata.dataset ? data.metadata.dataset : null;
             feedbackRating = null;
             document.getElementById('feedbackButtons').classList.remove('hidden');
-            document.getElementById('feedbackComment').classList.add('hidden');
-            document.getElementById('feedbackThanks').classList.add('hidden');
+            document.getElementById('feedbackComment').classList.remove('open');
+            document.getElementById('feedbackThanks').style.display = 'none';
+            document.getElementById('feedbackThanks').classList.remove('visible');
             document.getElementById('feedbackText').value = '';
             document.getElementById('btn-thumbs-up').classList.remove('border-emerald-500', 'bg-emerald-50');
             document.getElementById('btn-thumbs-down').classList.remove('border-red-500', 'bg-red-50');
@@ -995,9 +1215,15 @@
                 const headerRow = document.createElement('tr');
                 data.columns.forEach(col => { const th = document.createElement('th'); th.className = 'px-4 py-3'; th.textContent = col; headerRow.appendChild(th); });
                 thead.appendChild(headerRow);
+
+                // Enhancement 2: Staggered row entrance
                 data.data.forEach((row, idx) => {
                     const tr = document.createElement('tr');
                     tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-warm-white';
+                    if (idx < 20) {
+                        tr.classList.add('row-animate');
+                        tr.style.animationDelay = (idx * 30) + 'ms';
+                    }
                     data.columns.forEach(col => { const td = document.createElement('td'); td.className = 'px-4 py-3 text-gray-700'; td.textContent = row[col] ?? ''; tr.appendChild(td); });
                     tbody.appendChild(tr);
                 });
@@ -1005,8 +1231,20 @@
 
             const chartContainer = document.getElementById('chartContainer');
             const noChart = document.getElementById('noChart');
-            if (data.chart_data) { noChart.classList.add('hidden'); chartContainer.style.display = 'block'; currentChartData = data.chart_data; renderChart(data.chart_data); }
-            else { chartContainer.style.display = 'none'; noChart.classList.remove('hidden'); }
+            if (data.chart_data) {
+                noChart.classList.add('hidden');
+                chartContainer.style.display = 'block';
+                currentChartData = data.chart_data;
+                chartRealData = data.chart_data;
+                // Enhancement 8: Render chart with zero values, animate on tab switch
+                renderChartWithZeros(data.chart_data);
+                chartAnimationPending = true;
+            } else {
+                chartContainer.style.display = 'none';
+                noChart.classList.remove('hidden');
+                chartRealData = null;
+                chartAnimationPending = false;
+            }
 
             const mapContainer = document.getElementById('mapContainer');
             const noMap = document.getElementById('noMap');
@@ -1028,7 +1266,7 @@
         }
 
         // =====================================================
-        // VALIDATION / SOURCES / CHARTS / MAP (unchanged logic)
+        // VALIDATION / SOURCES / CHARTS / MAP
         // =====================================================
         function renderValidation(validation, biasWarnings) {
             const statusEl = document.getElementById('validationStatus');
@@ -1070,6 +1308,65 @@
             sourcesEl.innerHTML = html;
         }
 
+        // Enhancement 8: Render chart with zero y-values for animation
+        function renderChartWithZeros(chartData) {
+            const container = document.getElementById('chartContainer');
+            Plotly.purge(container);
+            const fontConfig = { family: 'Space Grotesk, Inter, sans-serif' };
+            if (chartData.type === 'grouped_bar') {
+                const traces = chartData.datasets.map((ds, idx) => ({
+                    x: chartData.labels, y: ds.data.map(() => 0), name: ds.label, type: 'bar',
+                    marker: { color: idx === 0 ? '#F76900' : '#003F77' }
+                }));
+                Plotly.newPlot(container, traces, { barmode: 'group', xaxis: { title: chartData.x_label, tickangle: -45 }, yaxis: { title: 'Count' }, margin: { b: 120, l: 60, r: 40, t: 40 }, legend: { orientation: 'h', y: 1.1 }, font: fontConfig }, { responsive: true });
+            } else if (chartData.type === 'bar') {
+                const trace = {
+                    x: chartData.labels, y: chartData.values.map(() => 0), type: 'bar',
+                    marker: { color: chartData.values, colorscale: [[0, '#93c5fd'], [1, '#003F77']], showscale: false },
+                    text: chartData.values.map(() => ''), textposition: 'outside',
+                    hovertemplate: '%{x}<br>Count: %{y:,}<extra></extra>'
+                };
+                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, tickangle: -45, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 120, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#003F77' }, font: fontConfig }, { responsive: true });
+            } else if (chartData.type === 'line') {
+                const trace = {
+                    x: chartData.labels, y: chartData.values.map(() => 0), type: 'scatter', mode: 'lines+markers',
+                    line: { color: '#F76900', width: 3 }, marker: { size: 8, color: '#F76900' },
+                    hovertemplate: '%{x}<br>%{y:,}<extra></extra>'
+                };
+                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 80, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#F76900' }, font: fontConfig }, { responsive: true });
+            }
+        }
+
+        function animateChartIn(chartData) {
+            const container = document.getElementById('chartContainer');
+            if (chartData.type === 'grouped_bar') {
+                const update = {};
+                chartData.datasets.forEach((ds, idx) => {
+                    update['y'] = ds.data; // will be applied per-trace below
+                });
+                // Animate each trace
+                chartData.datasets.forEach((ds, idx) => {
+                    Plotly.animate(container, {
+                        data: [{ y: ds.data }],
+                        traces: [idx]
+                    }, { transition: { duration: 600, easing: 'cubic-out' }, frame: { duration: 600 } });
+                });
+            } else if (chartData.type === 'bar') {
+                Plotly.animate(container, {
+                    data: [{
+                        y: chartData.values,
+                        text: chartData.values.map(v => v.toLocaleString())
+                    }],
+                    traces: [0]
+                }, { transition: { duration: 600, easing: 'cubic-out' }, frame: { duration: 600 } });
+            } else if (chartData.type === 'line') {
+                Plotly.animate(container, {
+                    data: [{ y: chartData.values }],
+                    traces: [0]
+                }, { transition: { duration: 600, easing: 'cubic-out' }, frame: { duration: 600 } });
+            }
+        }
+
         function renderChart(chartData) {
             const container = document.getElementById('chartContainer');
             Plotly.purge(container);
@@ -1101,23 +1398,30 @@
         }
 
         // =====================================================
-        // FEEDBACK
+        // FEEDBACK (Enhanced with micro-interactions)
         // =====================================================
         function submitFeedback(rating) {
             feedbackRating = rating;
-            // Highlight selected button
             const upBtn = document.getElementById('btn-thumbs-up');
             const downBtn = document.getElementById('btn-thumbs-down');
-            upBtn.classList.remove('border-emerald-500', 'bg-emerald-50');
-            downBtn.classList.remove('border-red-500', 'bg-red-50');
+            upBtn.classList.remove('border-emerald-500', 'bg-emerald-50', 'btn-pop');
+            downBtn.classList.remove('border-red-500', 'bg-red-50', 'btn-pop');
+
+            // Enhancement 5: Button pop animation
             if (rating === 'up') {
                 upBtn.classList.add('border-emerald-500', 'bg-emerald-50');
+                void upBtn.offsetWidth; // force reflow for re-triggering animation
+                upBtn.classList.add('btn-pop');
             } else {
                 downBtn.classList.add('border-red-500', 'bg-red-50');
+                void downBtn.offsetWidth;
+                downBtn.classList.add('btn-pop');
             }
-            // Show comment box
-            document.getElementById('feedbackComment').classList.remove('hidden');
-            // Send rating immediately (comment is optional)
+
+            // Enhancement 5: Slide open comment textarea
+            const commentWrap = document.getElementById('feedbackComment');
+            commentWrap.classList.add('open');
+
             sendFeedbackToServer(rating, null);
         }
 
@@ -1125,10 +1429,17 @@
             const comment = document.getElementById('feedbackText').value.trim();
             if (!feedbackRating) return;
             sendFeedbackToServer(feedbackRating, comment || null);
-            // Show thank you
+
+            // Hide buttons and comment
             document.getElementById('feedbackButtons').classList.add('hidden');
-            document.getElementById('feedbackComment').classList.add('hidden');
-            document.getElementById('feedbackThanks').classList.remove('hidden');
+            document.getElementById('feedbackComment').classList.remove('open');
+
+            // Enhancement 5: Fade in thank-you
+            const thanks = document.getElementById('feedbackThanks');
+            thanks.style.display = 'flex';
+            requestAnimationFrame(() => {
+                thanks.classList.add('visible');
+            });
         }
 
         async function sendFeedbackToServer(rating, comment) {
@@ -1151,10 +1462,43 @@
         }
 
         // =====================================================
+        // Enhancement 6: Floating Scroll-to-Search Button
+        // =====================================================
+        function scrollToSearch() {
+            document.getElementById('querySection').scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => {
+                stopTypewriter();
+                questionInput().focus();
+            }, 500);
+        }
+
+        // =====================================================
+        // Enhancement 7: Dataset Card 3D Tilt on Hover
+        // =====================================================
+        function initCardTilt() {
+            document.querySelectorAll('.dataset-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const rotateX = ((y - centerY) / centerY) * -4;
+                    const rotateY = ((x - centerX) / centerX) * 4;
+                    card.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = '';
+                });
+            });
+        }
+
+        // =====================================================
         // INIT
         // =====================================================
         document.addEventListener('DOMContentLoaded', () => {
             typewriterTick();
+
             // Keyboard shortcut: press / to focus search
             document.addEventListener('keydown', (e) => {
                 if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
@@ -1163,8 +1507,34 @@
                     questionInput().focus();
                 }
             });
+
             // Restart typewriter when input is blurred and empty
             questionInput().addEventListener('blur', () => { setTimeout(maybeRestartTypewriter, 300); });
+
+            // Enhancement 3: Initialize underline position
+            setTimeout(() => {
+                const activeTab = document.getElementById('tab-data');
+                if (activeTab) moveUnderline(activeTab);
+            }, 100);
+
+            // Enhancement 6: IntersectionObserver for scroll button
+            const scrollBtn = document.getElementById('scrollTopBtn');
+            const querySection = document.getElementById('querySection');
+            if (scrollBtn && querySection) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            scrollBtn.classList.remove('visible');
+                        } else {
+                            scrollBtn.classList.add('visible');
+                        }
+                    });
+                }, { threshold: 0 });
+                observer.observe(querySection);
+            }
+
+            // Enhancement 7: Init card tilt
+            initCardTilt();
         });
     </script>
 </body>
