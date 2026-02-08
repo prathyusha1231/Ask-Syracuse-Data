@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ask Syracuse Data</title>
 
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -20,7 +25,15 @@
                         syracuse: {
                             orange: '#F76900',
                             blue: '#003F77',
-                        }
+                            'blue-dark': '#002D57',
+                        },
+                        'warm-white': '#FDFAF6',
+                        cream: '#FDF5EC',
+                        charcoal: '#1A1A2E',
+                    },
+                    fontFamily: {
+                        heading: ['"Space Grotesk"', 'sans-serif'],
+                        body: ['"Inter"', 'sans-serif'],
                     }
                 }
             }
@@ -28,380 +41,193 @@
     </script>
 
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #003F77 0%, #1e3a5f 100%);
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Space Grotesk', sans-serif; }
+
+        .border-b-3 { border-bottom-width: 3px; }
+
+        /* Typewriter cursor blink */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #F76900;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+        .typewriter-cursor::after {
+            content: '|';
+            animation: blink 0.8s step-end infinite;
+            color: #F76900;
+            font-weight: 300;
+        }
+
+        /* Loading step animations */
+        @keyframes stepIn {
+            from { opacity: 0; transform: translateX(-8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .step-animate {
+            animation: stepIn 0.3s ease-out forwards;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .step-spinner {
+            width: 18px; height: 18px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #F76900;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
         .fade-in {
-            animation: fadeIn 0.3s ease-in;
+            animation: fadeIn 0.4s ease-out;
         }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .dataset-card {
-            transition: transform 0.15s, box-shadow 0.15s;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .dataset-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        #dataTable tbody tr {
+            transition: background-color 0.15s ease;
+        }
+        #dataTable tbody tr:hover {
+            background-color: #FDF5EC !important;
+        }
+
+        /* Accordion transitions */
+        .category-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease-out, opacity 0.25s ease-out;
+            opacity: 0;
+        }
+        .category-content.open {
+            max-height: 2000px;
+            opacity: 1;
+            transition: max-height 0.45s ease-in, opacity 0.3s ease-in;
+        }
+        .chevron-icon {
+            transition: transform 0.25s ease;
+        }
+        .chevron-icon.rotated {
+            transform: rotate(180deg);
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Header / Hero -->
-    <header class="gradient-bg text-white shadow-lg">
-        <div class="max-w-6xl mx-auto px-4 py-10 text-center">
-            <h1 class="text-4xl md:text-5xl font-bold mb-3">Ask Syracuse Data</h1>
-            <p class="text-blue-200 text-lg mb-4">Ask questions in plain English about Syracuse city data. Get instant answers with charts, maps, and transparent SQL.</p>
-            <div class="flex flex-wrap justify-center gap-3">
-                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">15 Datasets</span>
-                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">400K+ Records</span>
-                <span class="bg-white/20 px-3 py-1 rounded-full text-sm">Powered by DuckDB</span>
-            </div>
-        </div>
-    </header>
+<body class="bg-warm-white text-charcoal min-h-screen">
 
-    <main class="max-w-6xl mx-auto px-4 py-8 space-y-10">
+    <!-- ============================================================ -->
+    <!-- HERO + QUERY (merged) -->
+    <!-- ============================================================ -->
+    <header class="relative bg-syracuse-blue overflow-hidden" id="querySection">
+        <div class="max-w-7xl mx-auto px-6 pt-16 md:pt-20 pb-24 md:pb-28 text-center relative z-10">
+            <p class="uppercase tracking-[0.25em] text-blue-300 text-sm font-heading font-semibold mb-4">Syracuse Open Data</p>
+            <h1 class="font-heading font-bold text-5xl md:text-7xl text-white leading-tight mb-4">
+                Ask Syracuse Data
+            </h1>
+            <p class="text-blue-200 text-lg md:text-xl max-w-2xl mx-auto mb-10">
+                Ask questions in plain English. Get instant answers with charts, maps, and transparent SQL.
+            </p>
 
-        <!-- Who Is This For -->
-        <section class="grid md:grid-cols-2 gap-6">
-            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-syracuse-orange">
-                <h2 class="text-lg font-bold text-gray-800 mb-2">Current Residents</h2>
-                <p class="text-gray-600 text-sm">Look up trash schedules, check code violations on your block, explore service request trends, and understand neighborhood data.</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Trash Pickup</span>
-                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Violations</span>
-                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Service Requests</span>
-                    <span class="text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded">Parking</span>
+            <!-- Search input -->
+            <div class="max-w-2xl mx-auto">
+                <div class="flex gap-3">
+                    <div class="flex-1 relative">
+                        <input
+                            type="text"
+                            id="question"
+                            class="w-full px-5 py-4 pr-12 rounded-xl text-charcoal bg-white shadow-lg focus:ring-4 focus:ring-syracuse-orange/30 outline-none transition text-base"
+                            onkeypress="if(event.key === 'Enter') submitQuery()"
+                            onfocus="stopTypewriter()"
+                        >
+                        <!-- Typewriter overlay (visible when input is empty and unfocused) -->
+                        <div id="typewriterOverlay" class="absolute inset-0 flex items-center px-5 pointer-events-none">
+                            <span id="typewriterText" class="text-gray-400 typewriter-cursor text-base truncate"></span>
+                        </div>
+                    </div>
+                    <button
+                        onclick="submitQuery()"
+                        id="submitBtn"
+                        class="bg-syracuse-orange hover:bg-orange-600 text-white px-7 py-4 rounded-xl font-heading font-bold text-base transition shadow-lg flex items-center gap-2"
+                    >
+                        <span>Query</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
                 </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-syracuse-blue">
-                <h2 class="text-lg font-bold text-gray-800 mb-2">Moving to Syracuse?</h2>
-                <p class="text-gray-600 text-sm">Research neighborhoods, compare property assessments, check bike infrastructure, and explore public safety data before you move.</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Assessments</span>
-                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Bike Routes</span>
-                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Crime Data</span>
-                    <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Trees</span>
-                </div>
-            </div>
-        </section>
 
-        <!-- Available Datasets -->
-        <section>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Available Datasets</h2>
-
-            <!-- Housing & Property -->
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Housing & Property</h3>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Code Violations</h4>
-                        <span class="text-xs text-gray-400">~60K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Housing code violation records with dates, status, and location.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many violations by neighborhood?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
-                        <button onclick="setQuestion('Violations by year')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By year</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Vacant Properties</h4>
-                        <span class="text-xs text-gray-400">~3K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Properties designated as vacant by the city.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many vacant properties by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                        <button onclick="setQuestion('Vacant properties by neighborhood')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Rental Registry</h4>
-                        <span class="text-xs text-gray-400">~15K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Registered rental properties with inspection status.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many rental properties by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                        <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Rentals + violations</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Unfit Properties</h4>
-                        <span class="text-xs text-gray-400">353 rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Properties deemed unfit for habitation.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many unfit properties by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                        <button onclick="setQuestion('How many unfit properties are vacant?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Vacant unfit</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Historical Properties</h4>
-                        <span class="text-xs text-gray-400">3,486 rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Historically significant properties and landmark status.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many historical properties are National Register eligible?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">NR eligible</button>
-                        <button onclick="setQuestion('Historical properties by zip code')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Assessment Roll</h4>
-                        <span class="text-xs text-gray-400">~41K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Property assessments with values and class descriptions.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('What is the average property assessment?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Avg assessment</button>
-                        <button onclick="setQuestion('How many residential properties are there?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Residential count</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Public Safety -->
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Public Safety</h3>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Crime Data 2022</h4>
-                        <span class="text-xs text-gray-400">~5K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Part 1 offenses (serious crimes) for 2022.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('Crime by neighborhood')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
-                        <button onclick="setQuestion('Crime by month')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By month</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Parking Violations</h4>
-                        <span class="text-xs text-gray-400">~197K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Parking tickets with violation type, status, and fine amount.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many parking violations by type?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By type</button>
-                        <button onclick="setQuestion('Parking violations by zip code')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- City Services -->
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">City Services</h3>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">SYRCityline Requests</h4>
-                        <span class="text-xs text-gray-400">~116K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">311 service requests with category, agency, and response times.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Top complaints</button>
-                        <button onclick="setQuestion('How many service requests by category?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By category</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Trash Pickup</h4>
-                        <span class="text-xs text-gray-400">~41K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Collection day and recycling week by address.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Monday pickup</button>
-                        <button onclick="setQuestion('Trash pickup schedule by zip code')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Permit Requests</h4>
-                        <span class="text-xs text-gray-400">~47K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Building permits with type and issue date.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many building permits by type?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By type</button>
-                        <button onclick="setQuestion('Permits by year')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By year</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Infrastructure -->
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Infrastructure</h3>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Bike Suitability</h4>
-                        <span class="text-xs text-gray-400">868 rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Road-level bike suitability ratings.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('Bike suitability ratings breakdown')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Ratings</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Bike Infrastructure</h4>
-                        <span class="text-xs text-gray-400">59 rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Trails, lanes, and paths with mileage.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many miles of bike lanes are there?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Total miles</button>
-                        <button onclick="setQuestion('Bike infrastructure by type')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By type</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Snow Routes</h4>
-                        <span class="text-xs text-gray-400">3,685 rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Emergency snow route road segments.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('How many snow routes by zip code?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By ZIP</button>
-                    </div>
-                </div>
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Tree Inventory</h4>
-                        <span class="text-xs text-gray-400">~55K rows</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">City trees with species, size, and neighborhood.</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">Top species</button>
-                        <button onclick="setQuestion('How many trees by neighborhood?')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By neighborhood</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Public Health -->
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Public Health (Research)</h3>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div class="dataset-card bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-semibold text-gray-800 text-sm">Lead Testing</h4>
-                        <span class="text-xs text-gray-400">Census tract</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">Lead poisoning screening data by census tract (2013-2024).</p>
-                    <div class="flex flex-wrap gap-1">
-                        <button onclick="setQuestion('Lead testing results by census tract')" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition cursor-pointer">By tract</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Limitations & Transparency -->
-        <section class="bg-blue-50 border border-blue-200 rounded-xl p-6">
-            <h2 class="text-lg font-bold text-blue-900 mb-3">Transparency & Limitations</h2>
-            <ul class="space-y-2 text-sm text-blue-800">
-                <li class="flex items-start gap-2">
-                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
-                    <span><strong>The AI only parses your question</strong> &mdash; it never sees or modifies the raw data. All computations are deterministic SQL.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
-                    <span><strong>Results come from static CSV snapshots</strong>, not live city data. Datasets may be weeks or months behind.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
-                    <span><strong>Crime data covers 2022 only</strong> (Part 1 offenses). Addresses are generalized to block level for privacy.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
-                    <span><strong>Cross-dataset joins</strong> are supported between housing datasets (via ZIP/SBL) and crime + housing (via ZIP/neighborhood). Not all datasets can be cross-referenced.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
-                    <span><strong>Simple queries work best.</strong> COUNT, averages, and grouping are well-supported. Complex analytics (rankings, percentiles) require an API key.</span>
-                </li>
-            </ul>
-        </section>
-
-        <!-- Query Input Section -->
-        <section class="bg-white rounded-xl shadow-md p-6" id="querySection">
-            <label for="question" class="block text-gray-700 font-semibold mb-2">
-                What would you like to know?
-            </label>
-            <div class="flex gap-3">
-                <input
-                    type="text"
-                    id="question"
-                    placeholder="e.g., How many code violations are there by neighborhood?"
-                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-syracuse-orange focus:border-transparent outline-none transition"
-                    onkeypress="if(event.key === 'Enter') submitQuery()"
-                >
-                <button
-                    onclick="submitQuery()"
-                    id="submitBtn"
-                    class="bg-syracuse-orange hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center gap-2"
-                >
-                    <span>Query</span>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Example Queries by Category -->
-            <div class="mt-4">
-                <p class="text-sm text-gray-500 mb-2">Quick examples:</p>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="setQuestion('How many code violations are there?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                <!-- Example pills -->
+                <div class="mt-5 flex flex-wrap justify-center gap-2">
+                    <button onclick="setQuestion('How many code violations are there?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Total violations
                     </button>
-                    <button onclick="setQuestion('Violations by neighborhood')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('Violations by neighborhood')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Violations by neighborhood
                     </button>
-                    <button onclick="setQuestion('How many parking violations by type?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('How many parking violations by type?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Parking violations
                     </button>
-                    <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Cityline complaints
                     </button>
-                    <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Tree species
                     </button>
-                    <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Monday trash
                     </button>
-                    <button onclick="setQuestion('Bike infrastructure by type')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('Bike infrastructure by type')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Bike infra
                     </button>
-                    <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition">
+                    <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-sm bg-white/15 hover:bg-white hover:text-syracuse-blue text-white/90 px-4 py-1.5 rounded-full transition font-medium backdrop-blur">
                         Rentals + violations
                     </button>
                 </div>
-            </div>
-        </section>
 
-        <!-- Loading State -->
+                <!-- Stats row -->
+                <div class="mt-8 flex justify-center gap-8 text-sm">
+                    <span class="text-blue-300"><strong class="text-white font-heading">16</strong> Datasets</span>
+                    <span class="text-blue-300"><strong class="text-syracuse-orange font-heading">400K+</strong> Records</span>
+                    <span class="text-blue-300"><strong class="text-white font-heading">5</strong> Cross-Dataset Joins</span>
+                </div>
+            </div>
+        </div>
+        <!-- Angled divider -->
+        <div class="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
+            <svg class="relative block w-full" style="height:60px;" viewBox="0 0 1200 60" preserveAspectRatio="none">
+                <polygon fill="#FDFAF6" points="0,60 1200,60 1200,0"></polygon>
+            </svg>
+        </div>
+    </header>
+
+    <!-- ============================================================ -->
+    <!-- LOADING / ERROR / RESULTS -->
+    <!-- ============================================================ -->
+    <section class="max-w-7xl mx-auto px-6 py-10 space-y-8">
+
+        <!-- Loading State — Progressive Steps -->
         <div id="loading" class="hidden">
-            <div class="bg-white rounded-xl shadow-md p-8 text-center">
-                <div class="loader mx-auto mb-4"></div>
-                <p class="text-gray-600">Processing your question...</p>
+            <div class="bg-white rounded-2xl shadow-md p-8">
+                <div class="max-w-md mx-auto space-y-4" id="loadingSteps">
+                    <!-- Steps injected by JS -->
+                </div>
             </div>
         </div>
 
         <!-- Error State -->
         <div id="error" class="hidden">
-            <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+            <div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-6">
                 <div class="flex items-center gap-3">
-                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span id="errorMessage" class="text-red-700"></span>
+                    <span id="errorMessage" class="text-red-700 font-medium"></span>
                 </div>
             </div>
         </div>
@@ -409,43 +235,43 @@
         <!-- Results Section -->
         <div id="results" class="hidden space-y-6 fade-in">
             <!-- Description Card -->
-            <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-emerald-500">
                 <div class="flex items-start gap-4">
-                    <div class="bg-green-100 p-2 rounded-lg">
-                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="bg-emerald-100 p-2.5 rounded-xl flex-shrink-0">
+                        <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
                     <div>
-                        <h2 class="font-semibold text-gray-800 text-lg" id="resultDescription"></h2>
+                        <h2 class="font-heading font-bold text-charcoal text-lg" id="resultDescription"></h2>
                         <p class="text-gray-500 text-sm mt-1" id="limitations"></p>
                     </div>
                 </div>
             </div>
 
             <!-- Tabs -->
-            <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                <div class="border-b border-gray-200">
-                    <nav class="flex">
-                        <button onclick="showTab('data')" id="tab-data" class="tab-btn px-6 py-3 font-medium text-syracuse-orange border-b-2 border-syracuse-orange">
+            <div class="bg-white rounded-2xl shadow-md overflow-hidden">
+                <div class="border-b-2 border-gray-100">
+                    <nav class="flex overflow-x-auto">
+                        <button onclick="showTab('data')" id="tab-data" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-syracuse-orange border-b-3 border-syracuse-orange whitespace-nowrap">
                             Data
                         </button>
-                        <button onclick="showTab('chart')" id="tab-chart" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                        <button onclick="showTab('chart')" id="tab-chart" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
                             Chart
                         </button>
-                        <button onclick="showTab('map')" id="tab-map" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700 hidden">
+                        <button onclick="showTab('map')" id="tab-map" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap hidden">
                             Map
                         </button>
-                        <button onclick="showTab('insights')" id="tab-insights" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                        <button onclick="showTab('insights')" id="tab-insights" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
                             Insights
                         </button>
-                        <button onclick="showTab('sql')" id="tab-sql" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                        <button onclick="showTab('sql')" id="tab-sql" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
                             SQL
                         </button>
-                        <button onclick="showTab('validation')" id="tab-validation" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                        <button onclick="showTab('validation')" id="tab-validation" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
                             Validation
                         </button>
-                        <button onclick="showTab('sources')" id="tab-sources" class="tab-btn px-6 py-3 font-medium text-gray-500 hover:text-gray-700">
+                        <button onclick="showTab('sources')" id="tab-sources" class="tab-btn px-6 py-4 font-heading font-semibold text-sm uppercase tracking-wider text-gray-400 hover:text-gray-600 whitespace-nowrap">
                             Sources
                         </button>
                     </nav>
@@ -453,69 +279,42 @@
 
                 <!-- Tab Content -->
                 <div class="p-6">
-                    <!-- Data Tab -->
                     <div id="content-data" class="tab-content">
                         <div class="overflow-x-auto">
                             <table id="dataTable" class="w-full text-left">
-                                <thead id="tableHead" class="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
-                                </thead>
-                                <tbody id="tableBody" class="divide-y divide-gray-200">
-                                </tbody>
+                                <thead id="tableHead" class="bg-syracuse-blue text-white text-xs font-heading uppercase tracking-wider"></thead>
+                                <tbody id="tableBody" class="divide-y divide-gray-100 text-sm"></tbody>
                             </table>
                         </div>
                     </div>
-
-                    <!-- Chart Tab -->
                     <div id="content-chart" class="tab-content hidden">
                         <div id="chartContainer" style="width:100%; height:450px;"></div>
-                        <p id="noChart" class="text-gray-500 text-center py-8 hidden">
-                            Chart not available for this query type.
-                        </p>
+                        <p id="noChart" class="text-gray-400 text-center py-8 hidden font-heading">Chart not available for this query type.</p>
                     </div>
-
-                    <!-- Map Tab -->
                     <div id="content-map" class="tab-content hidden">
                         <div id="mapContainer" style="width:100%; height:450px;"></div>
-                        <p id="noMap" class="text-gray-500 text-center py-8 hidden">
-                            Map not available for this query.
-                        </p>
+                        <p id="noMap" class="text-gray-400 text-center py-8 hidden font-heading">Map not available for this query.</p>
                     </div>
-
-                    <!-- Insights Tab -->
                     <div id="content-insights" class="tab-content hidden">
-                        <div id="insightsContent" class="prose max-w-none">
-                        </div>
-                        <p id="noInsights" class="text-gray-500 text-center py-8 hidden">
-                            Set OPENAI_API_KEY to enable AI-powered insights.
-                        </p>
+                        <div id="insightsContent" class="prose max-w-none"></div>
+                        <p id="noInsights" class="text-gray-400 text-center py-8 hidden font-heading">Set OPENAI_API_KEY to enable AI-powered insights.</p>
                     </div>
-
-                    <!-- SQL Tab -->
                     <div id="content-sql" class="tab-content hidden">
-                        <pre id="sqlCode" class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-sm"></pre>
+                        <pre id="sqlCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
                     </div>
-
-                    <!-- Validation Tab -->
                     <div id="content-validation" class="tab-content hidden">
                         <div id="validationContent" class="space-y-4">
-                            <!-- Validation Status -->
-                            <div id="validationStatus" class="p-4 rounded-lg">
-                            </div>
-                            <!-- Bias Warnings -->
-                            <div id="biasWarnings" class="space-y-2">
-                            </div>
+                            <div id="validationStatus" class="p-4 rounded-xl"></div>
+                            <div id="biasWarnings" class="space-y-2"></div>
                         </div>
                     </div>
-
-                    <!-- Sources Tab -->
                     <div id="content-sources" class="tab-content hidden">
-                        <div id="sourcesContent" class="space-y-4">
-                        </div>
-                        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-                            <p class="text-sm text-blue-800">
-                                <strong>Data Integrity Note:</strong> All data comes from static CSV snapshots downloaded from
-                                <a href="https://data.syr.gov" target="_blank" class="underline">Syracuse Open Data Portal</a>.
-                                The LLM is used only for parsing natural language queries into structured intents - it never
+                        <div id="sourcesContent" class="space-y-4"></div>
+                        <div class="mt-6 p-5 bg-syracuse-blue/5 rounded-xl border border-syracuse-blue/10">
+                            <p class="text-sm text-gray-600">
+                                <strong class="text-charcoal">Data Integrity Note:</strong> All data comes from static CSV snapshots downloaded from
+                                <a href="https://data.syr.gov" target="_blank" class="text-syracuse-blue hover:underline font-medium">Syracuse Open Data Portal</a>.
+                                The LLM is used only for parsing natural language queries into structured intents &mdash; it never
                                 accesses, modifies, or interprets the raw data. All computations are deterministic SQL queries.
                             </p>
                         </div>
@@ -523,18 +322,521 @@
                 </div>
             </div>
         </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- WHO IS THIS FOR -->
+    <!-- ============================================================ -->
+    <section class="py-16">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="font-heading font-bold text-3xl md:text-4xl text-charcoal mb-10 text-center">Who Is This For?</h2>
+            <div class="grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-lg">
+                <div class="bg-syracuse-orange p-8 md:p-10 text-white">
+                    <h3 class="font-heading font-bold text-2xl mb-3">Current Residents</h3>
+                    <p class="text-orange-100 mb-5">Look up trash schedules, check code violations on your block, explore service request trends, and understand neighborhood data.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Trash Pickup</span>
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Violations</span>
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Service Requests</span>
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Parking</span>
+                    </div>
+                </div>
+                <div class="bg-syracuse-blue p-8 md:p-10 text-white">
+                    <h3 class="font-heading font-bold text-2xl mb-3">Moving to Syracuse?</h3>
+                    <p class="text-blue-200 mb-5">Research neighborhoods, compare property assessments, check bike infrastructure, and explore public safety data before you move.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Assessments</span>
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Bike Routes</span>
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Crime Data</span>
+                        <span class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">Trees</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- AVAILABLE DATASETS — Collapsible Accordion -->
+    <!-- ============================================================ -->
+    <main>
+    <section class="py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="font-heading font-bold text-3xl md:text-4xl text-charcoal mb-8">Available Datasets</h2>
+
+            <!-- Housing & Property -->
+            <div class="mb-3">
+                <button onclick="toggleCategory('housing')" class="w-full flex items-center justify-between py-3 px-1 group">
+                    <h3 class="font-heading font-semibold text-sm uppercase tracking-[0.2em] text-rose-600 flex items-center gap-2">
+                        <span class="inline-block w-8 h-0.5 bg-rose-600"></span>
+                        Housing & Property
+                        <span class="text-xs font-normal text-gray-400 lowercase tracking-normal ml-1">6 datasets</span>
+                    </h3>
+                    <svg id="chevron-housing" class="chevron-icon w-5 h-5 text-gray-400 group-hover:text-gray-600 rotated" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="cat-housing" class="category-content open">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-6 pt-2">
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-rose-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Code Violations</h4>
+                                <span class="text-xs text-gray-400 font-mono">~60K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Housing code violation records with dates, status, and location.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many violations by neighborhood?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By neighborhood</button>
+                                <button onclick="setQuestion('Violations by year')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By year</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-rose-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Vacant Properties</h4>
+                                <span class="text-xs text-gray-400 font-mono">~3K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Properties designated as vacant by the city.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many vacant properties by zip code?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                                <button onclick="setQuestion('Vacant properties by neighborhood')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By neighborhood</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-rose-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Rental Registry</h4>
+                                <span class="text-xs text-gray-400 font-mono">~15K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Registered rental properties with inspection status.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many rental properties by zip code?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                                <button onclick="setQuestion('Which zip codes have rental properties with violations?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Rentals + violations</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-rose-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Unfit Properties</h4>
+                                <span class="text-xs text-gray-400 font-mono">353</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Properties deemed unfit for habitation.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many unfit properties by zip code?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                                <button onclick="setQuestion('How many unfit properties are vacant?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Vacant unfit</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-rose-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Historical Properties</h4>
+                                <span class="text-xs text-gray-400 font-mono">3,486</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Historically significant properties and landmark status.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many historical properties are National Register eligible?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">NR eligible</button>
+                                <button onclick="setQuestion('Historical properties by zip code')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-rose-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Assessment Roll</h4>
+                                <span class="text-xs text-gray-400 font-mono">~41K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Property assessments with values and class descriptions.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('What is the average property assessment?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Avg assessment</button>
+                                <button onclick="setQuestion('How many residential properties are there?')" class="text-xs bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Residential count</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Public Safety -->
+            <div class="mb-3">
+                <button onclick="toggleCategory('safety')" class="w-full flex items-center justify-between py-3 px-1 group">
+                    <h3 class="font-heading font-semibold text-sm uppercase tracking-[0.2em] text-emerald-600 flex items-center gap-2">
+                        <span class="inline-block w-8 h-0.5 bg-emerald-600"></span>
+                        Public Safety
+                        <span class="text-xs font-normal text-gray-400 lowercase tracking-normal ml-1">2 datasets</span>
+                    </h3>
+                    <svg id="chevron-safety" class="chevron-icon w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="cat-safety" class="category-content">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-6 pt-2">
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-emerald-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Crime Data 2022</h4>
+                                <span class="text-xs text-gray-400 font-mono">~5K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Part 1 offenses (serious crimes) for 2022.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('Crime by neighborhood')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By neighborhood</button>
+                                <button onclick="setQuestion('Crime by month')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By month</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-emerald-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Parking Violations</h4>
+                                <span class="text-xs text-gray-400 font-mono">~197K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Parking tickets with violation type, status, and fine amount.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many parking violations by type?')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By type</button>
+                                <button onclick="setQuestion('Parking violations by zip code')" class="text-xs bg-emerald-50 hover:bg-emerald-500 hover:text-white text-emerald-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- City Services -->
+            <div class="mb-3">
+                <button onclick="toggleCategory('services')" class="w-full flex items-center justify-between py-3 px-1 group">
+                    <h3 class="font-heading font-semibold text-sm uppercase tracking-[0.2em] text-teal-600 flex items-center gap-2">
+                        <span class="inline-block w-8 h-0.5 bg-teal-600"></span>
+                        City Services
+                        <span class="text-xs font-normal text-gray-400 lowercase tracking-normal ml-1">3 datasets</span>
+                    </h3>
+                    <svg id="chevron-services" class="chevron-icon w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="cat-services" class="category-content">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-6 pt-2">
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-teal-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">SYRCityline Requests</h4>
+                                <span class="text-xs text-gray-400 font-mono">~116K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">311 service requests with category, agency, and response times.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('What are the most common cityline complaints?')" class="text-xs bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Top complaints</button>
+                                <button onclick="setQuestion('How many service requests by category?')" class="text-xs bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By category</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-teal-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Trash Pickup</h4>
+                                <span class="text-xs text-gray-400 font-mono">~41K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Collection day and recycling week by address.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many properties have trash pickup on Monday?')" class="text-xs bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Monday pickup</button>
+                                <button onclick="setQuestion('Trash pickup schedule by zip code')" class="text-xs bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-teal-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Permit Requests</h4>
+                                <span class="text-xs text-gray-400 font-mono">~47K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Building permits with type and issue date.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many building permits by type?')" class="text-xs bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By type</button>
+                                <button onclick="setQuestion('Permits by year')" class="text-xs bg-teal-50 hover:bg-teal-500 hover:text-white text-teal-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By year</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Infrastructure -->
+            <div class="mb-3">
+                <button onclick="toggleCategory('infra')" class="w-full flex items-center justify-between py-3 px-1 group">
+                    <h3 class="font-heading font-semibold text-sm uppercase tracking-[0.2em] text-purple-600 flex items-center gap-2">
+                        <span class="inline-block w-8 h-0.5 bg-purple-600"></span>
+                        Infrastructure
+                        <span class="text-xs font-normal text-gray-400 lowercase tracking-normal ml-1">4 datasets</span>
+                    </h3>
+                    <svg id="chevron-infra" class="chevron-icon w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="cat-infra" class="category-content">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-6 pt-2">
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Bike Suitability</h4>
+                                <span class="text-xs text-gray-400 font-mono">868</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Road-level bike suitability ratings.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('Bike suitability ratings breakdown')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Ratings</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Bike Infrastructure</h4>
+                                <span class="text-xs text-gray-400 font-mono">59</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Trails, lanes, and paths with mileage.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many miles of bike lanes are there?')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Total miles</button>
+                                <button onclick="setQuestion('Bike infrastructure by type')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By type</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Snow Routes</h4>
+                                <span class="text-xs text-gray-400 font-mono">3,685</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Emergency snow route road segments.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('How many snow routes by zip code?')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+                            </div>
+                        </div>
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Tree Inventory</h4>
+                                <span class="text-xs text-gray-400 font-mono">~55K</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">City trees with species, size, and neighborhood.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('Most common tree species in Syracuse')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Top species</button>
+                                <button onclick="setQuestion('How many trees by neighborhood?')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By neighborhood</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Public Health -->
+            <div class="mb-3">
+                <button onclick="toggleCategory('health')" class="w-full flex items-center justify-between py-3 px-1 group">
+                    <h3 class="font-heading font-semibold text-sm uppercase tracking-[0.2em] text-amber-600 flex items-center gap-2">
+                        <span class="inline-block w-8 h-0.5 bg-amber-600"></span>
+                        Public Health (Research)
+                        <span class="text-xs font-normal text-gray-400 lowercase tracking-normal ml-1">1 dataset</span>
+                    </h3>
+                    <svg id="chevron-health" class="chevron-icon w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <div id="cat-health" class="category-content">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-6 pt-2">
+                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-amber-500">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-heading font-bold text-charcoal">Lead Testing</h4>
+                                <span class="text-xs text-gray-400 font-mono">Census tract</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mb-3">Lead poisoning screening data by census tract (2013-2024).</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="setQuestion('Lead testing results by census tract')" class="text-xs bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By tract</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Transparency & Limitations -->
+    <section class="bg-cream py-14">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="font-heading font-bold text-3xl md:text-4xl text-charcoal mb-8 text-center">Transparency & Limitations</h2>
+            <div class="grid md:grid-cols-2 gap-5">
+                <div class="bg-white rounded-xl p-5 shadow-sm flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-syracuse-blue/10 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-syracuse-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-semibold text-charcoal mb-1">AI Only Parses Questions</h4>
+                        <p class="text-sm text-gray-500">The AI never sees or modifies raw data. All computations are deterministic SQL.</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-syracuse-blue/10 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-syracuse-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-semibold text-charcoal mb-1">Static CSV Snapshots</h4>
+                        <p class="text-sm text-gray-500">Not live city data. Datasets may be weeks or months behind.</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-syracuse-blue/10 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-syracuse-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-semibold text-charcoal mb-1">Crime Data: 2022 Only</h4>
+                        <p class="text-sm text-gray-500">Part 1 offenses only. Addresses generalized to block level for privacy.</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-syracuse-blue/10 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-syracuse-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-semibold text-charcoal mb-1">Cross-Dataset Joins</h4>
+                        <p class="text-sm text-gray-500">Supported via ZIP/SBL/neighborhood between housing and crime. Not all datasets can be cross-referenced.</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm flex items-start gap-4 md:col-span-2">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-syracuse-orange/10 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-syracuse-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-semibold text-charcoal mb-1">Simple Queries Work Best</h4>
+                        <p class="text-sm text-gray-500">COUNT, averages, and grouping are well-supported. Complex analytics (rankings, percentiles) require an API key.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-100 border-t mt-12">
-        <div class="max-w-6xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
-            <p>Data source: <a href="https://data.syr.gov" target="_blank" class="underline">Syracuse Open Data Portal</a></p>
-            <p class="mt-1">LLM used only for query parsing, never accesses raw data</p>
+    <footer class="bg-syracuse-blue-dark text-white mt-12">
+        <div class="max-w-7xl mx-auto px-6 py-12">
+            <div class="grid md:grid-cols-3 gap-8">
+                <div>
+                    <h4 class="font-heading font-semibold text-sm uppercase tracking-wider text-blue-300 mb-3">About</h4>
+                    <p class="text-blue-300 text-sm leading-relaxed">A natural language interface for querying Syracuse Open Data. Built for residents, researchers, and anyone curious about the city.</p>
+                </div>
+                <div>
+                    <h4 class="font-heading font-semibold text-sm uppercase tracking-wider text-blue-300 mb-3">Data Source</h4>
+                    <p class="text-blue-200 text-sm mb-2">
+                        <a href="https://data.syr.gov" target="_blank" class="hover:text-white underline decoration-blue-400 underline-offset-2">Syracuse Open Data Portal</a>
+                    </p>
+                    <p class="text-blue-400 text-xs">LLM used only for query parsing, never accesses raw data.</p>
+                </div>
+                <div>
+                    <h4 class="font-heading font-semibold text-sm uppercase tracking-wider text-blue-300 mb-3">Built With</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-xs bg-white/10 px-3 py-1 rounded-full text-blue-200">FastAPI</span>
+                        <span class="text-xs bg-white/10 px-3 py-1 rounded-full text-blue-200">DuckDB</span>
+                        <span class="text-xs bg-white/10 px-3 py-1 rounded-full text-blue-200">GPT-4o-mini</span>
+                        <span class="text-xs bg-white/10 px-3 py-1 rounded-full text-blue-200">Plotly.js</span>
+                        <span class="text-xs bg-white/10 px-3 py-1 rounded-full text-blue-200">Tailwind CSS</span>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-white/10 mt-8 pt-6 text-center">
+                <p class="text-blue-400 text-xs">Open data for an open city.</p>
+            </div>
         </div>
     </footer>
 
     <script>
-        // Syracuse neighborhood coordinates (approximate centroids)
+        // =====================================================
+        // TYPEWRITER
+        // =====================================================
+        const TYPEWRITER_QUERIES = [
+            'How many violations by neighborhood?',
+            'Crime by month in 2022',
+            'Vacant properties by zip code',
+            'Most common tree species in Syracuse',
+            'Parking violations by type',
+            'Which zip codes have rental properties with violations?',
+            'How many building permits by type?',
+            'Bike infrastructure by type'
+        ];
+        let twIndex = 0, twCharIndex = 0, twDeleting = false, twTimer = null, twRunning = true;
+        const twTextEl = () => document.getElementById('typewriterText');
+        const twOverlay = () => document.getElementById('typewriterOverlay');
+        const questionInput = () => document.getElementById('question');
+
+        function typewriterTick() {
+            if (!twRunning) return;
+            const el = twTextEl();
+            if (!el) return;
+            const current = TYPEWRITER_QUERIES[twIndex];
+
+            if (!twDeleting) {
+                el.textContent = current.substring(0, twCharIndex + 1);
+                twCharIndex++;
+                if (twCharIndex >= current.length) {
+                    twTimer = setTimeout(() => { twDeleting = true; typewriterTick(); }, 2000);
+                    return;
+                }
+                twTimer = setTimeout(typewriterTick, 50 + Math.random() * 40);
+            } else {
+                el.textContent = current.substring(0, twCharIndex);
+                twCharIndex--;
+                if (twCharIndex < 0) {
+                    twDeleting = false;
+                    twCharIndex = 0;
+                    twIndex = (twIndex + 1) % TYPEWRITER_QUERIES.length;
+                    twTimer = setTimeout(typewriterTick, 400);
+                    return;
+                }
+                twTimer = setTimeout(typewriterTick, 25);
+            }
+        }
+
+        function stopTypewriter() {
+            twRunning = false;
+            if (twTimer) clearTimeout(twTimer);
+            const overlay = twOverlay();
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function maybeRestartTypewriter() {
+            const input = questionInput();
+            const overlay = twOverlay();
+            if (input && input.value === '' && document.activeElement !== input) {
+                overlay.style.display = 'flex';
+                twRunning = true;
+                twCharIndex = 0;
+                twDeleting = false;
+                typewriterTick();
+            }
+        }
+
+        // =====================================================
+        // PROGRESSIVE LOADING
+        // =====================================================
+        const LOADING_STEPS = [
+            { text: 'Parsing your question...', delay: 0 },
+            { text: 'Generating SQL query...', delay: 600 },
+            { text: 'Executing against DuckDB...', delay: 1400 },
+            { text: 'Validating results...', delay: 2200 }
+        ];
+        let loadingStepTimers = [];
+
+        function showProgressiveLoading() {
+            const container = document.getElementById('loadingSteps');
+            container.innerHTML = '';
+            loadingStepTimers.forEach(t => clearTimeout(t));
+            loadingStepTimers = [];
+
+            LOADING_STEPS.forEach((step, i) => {
+                const timer = setTimeout(() => {
+                    // Mark previous step as done
+                    if (i > 0) {
+                        const prevIcon = document.getElementById(`step-icon-${i - 1}`);
+                        if (prevIcon) {
+                            prevIcon.innerHTML = '<svg class="w-[18px] h-[18px] text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>';
+                        }
+                        const prevText = document.getElementById(`step-text-${i - 1}`);
+                        if (prevText) prevText.classList.replace('text-charcoal', 'text-gray-400');
+                    }
+                    // Add current step
+                    const stepEl = document.createElement('div');
+                    stepEl.className = 'flex items-center gap-3 step-animate';
+                    stepEl.innerHTML = `
+                        <span id="step-icon-${i}" class="flex-shrink-0"><div class="step-spinner"></div></span>
+                        <span id="step-text-${i}" class="font-heading font-medium text-sm text-charcoal">${step.text}</span>
+                    `;
+                    container.appendChild(stepEl);
+                }, step.delay);
+                loadingStepTimers.push(timer);
+            });
+        }
+
+        function hideProgressiveLoading() {
+            loadingStepTimers.forEach(t => clearTimeout(t));
+            loadingStepTimers = [];
+        }
+
+        // =====================================================
+        // ACCORDION
+        // =====================================================
+        function toggleCategory(id) {
+            const content = document.getElementById('cat-' + id);
+            const chevron = document.getElementById('chevron-' + id);
+            const isOpen = content.classList.contains('open');
+            if (isOpen) {
+                content.classList.remove('open');
+                chevron.classList.remove('rotated');
+            } else {
+                content.classList.add('open');
+                chevron.classList.add('rotated');
+            }
+        }
+
+        // =====================================================
+        // NEIGHBORHOOD COORDS
+        // =====================================================
         const NEIGHBORHOOD_COORDS = {
             'Northside': { lat: 43.075, lon: -76.155 },
             'Brighton': { lat: 43.022, lon: -76.147 },
@@ -570,55 +872,46 @@
             'Not Recorded': { lat: 43.045, lon: -76.150 }
         };
 
-        // Track if query involves neighborhoods
         let hasNeighborhoodData = false;
         let currentChartData = null;
 
-        // Tab functionality
+        // =====================================================
+        // TABS
+        // =====================================================
         function showTab(tabName) {
-            // Hide all content
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            // Reset all tab buttons
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('text-syracuse-orange', 'border-b-2', 'border-syracuse-orange');
-                el.classList.add('text-gray-500');
+                el.classList.remove('text-syracuse-orange', 'border-b-3', 'border-syracuse-orange');
+                el.classList.add('text-gray-400');
             });
-            // Show selected content
             document.getElementById(`content-${tabName}`).classList.remove('hidden');
-            // Highlight selected tab
             const tabBtn = document.getElementById(`tab-${tabName}`);
-            tabBtn.classList.add('text-syracuse-orange', 'border-b-2', 'border-syracuse-orange');
-            tabBtn.classList.remove('text-gray-500');
-
-            // Resize charts/maps when shown
-            if (tabName === 'chart') {
-                setTimeout(() => Plotly.Plots.resize('chartContainer'), 100);
-            }
-            if (tabName === 'map') {
-                setTimeout(() => Plotly.Plots.resize('mapContainer'), 100);
-            }
+            tabBtn.classList.add('text-syracuse-orange', 'border-b-3', 'border-syracuse-orange');
+            tabBtn.classList.remove('text-gray-400');
+            if (tabName === 'chart') setTimeout(() => Plotly.Plots.resize('chartContainer'), 100);
+            if (tabName === 'map') setTimeout(() => Plotly.Plots.resize('mapContainer'), 100);
         }
 
-        // Set example question
+        // =====================================================
+        // QUERY
+        // =====================================================
         function setQuestion(q) {
-            document.getElementById('question').value = q;
-            // Scroll to query section
+            const input = questionInput();
+            input.value = q;
+            stopTypewriter();
             document.getElementById('querySection').scrollIntoView({ behavior: 'smooth' });
             submitQuery();
         }
 
-        // Submit query
         async function submitQuery() {
-            const question = document.getElementById('question').value.trim();
-            if (!question) {
-                showError('Please enter a question.');
-                return;
-            }
+            const question = questionInput().value.trim();
+            if (!question) { showError('Please enter a question.'); return; }
 
-            // Show loading, hide others
+            stopTypewriter();
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('error').classList.add('hidden');
             document.getElementById('results').classList.add('hidden');
+            showProgressiveLoading();
 
             try {
                 const response = await fetch('/api/query', {
@@ -626,18 +919,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ question })
                 });
-
                 const data = await response.json();
+                hideProgressiveLoading();
                 document.getElementById('loading').classList.add('hidden');
-
-                if (!data.success) {
-                    showError(data.error || 'Query failed');
-                    return;
-                }
-
+                if (!data.success) { showError(data.error || 'Query failed'); return; }
                 displayResults(data);
-
             } catch (err) {
+                hideProgressiveLoading();
                 document.getElementById('loading').classList.add('hidden');
                 showError('Failed to connect to server: ' + err.message);
             }
@@ -650,359 +938,143 @@
 
         function displayResults(data) {
             document.getElementById('results').classList.remove('hidden');
-
-            // Description
             document.getElementById('resultDescription').textContent = data.description || 'Query completed';
             document.getElementById('limitations').textContent = data.limitations || '';
 
-            // Data table
             const thead = document.getElementById('tableHead');
             const tbody = document.getElementById('tableBody');
             thead.innerHTML = '';
             tbody.innerHTML = '';
 
-            // Check if data involves neighborhoods
-            hasNeighborhoodData = data.columns && data.columns.some(col =>
-                col.toLowerCase().includes('neighborhood')
-            );
-
-            // Show/hide map tab based on neighborhood data
+            hasNeighborhoodData = data.columns && data.columns.some(col => col.toLowerCase().includes('neighborhood'));
             const mapTab = document.getElementById('tab-map');
-            if (hasNeighborhoodData && data.data && data.data.length > 1) {
-                mapTab.classList.remove('hidden');
-            } else {
-                mapTab.classList.add('hidden');
-            }
+            if (hasNeighborhoodData && data.data && data.data.length > 1) { mapTab.classList.remove('hidden'); } else { mapTab.classList.add('hidden'); }
 
             if (data.columns && data.data) {
-                // Header
                 const headerRow = document.createElement('tr');
-                data.columns.forEach(col => {
-                    const th = document.createElement('th');
-                    th.className = 'px-4 py-3';
-                    th.textContent = col;
-                    headerRow.appendChild(th);
-                });
+                data.columns.forEach(col => { const th = document.createElement('th'); th.className = 'px-4 py-3'; th.textContent = col; headerRow.appendChild(th); });
                 thead.appendChild(headerRow);
-
-                // Body
                 data.data.forEach((row, idx) => {
                     const tr = document.createElement('tr');
-                    tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                    data.columns.forEach(col => {
-                        const td = document.createElement('td');
-                        td.className = 'px-4 py-3 text-gray-700';
-                        td.textContent = row[col] ?? '';
-                        tr.appendChild(td);
-                    });
+                    tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-warm-white';
+                    data.columns.forEach(col => { const td = document.createElement('td'); td.className = 'px-4 py-3 text-gray-700'; td.textContent = row[col] ?? ''; tr.appendChild(td); });
                     tbody.appendChild(tr);
                 });
             }
 
-            // Chart
             const chartContainer = document.getElementById('chartContainer');
             const noChart = document.getElementById('noChart');
+            if (data.chart_data) { noChart.classList.add('hidden'); chartContainer.style.display = 'block'; currentChartData = data.chart_data; renderChart(data.chart_data); }
+            else { chartContainer.style.display = 'none'; noChart.classList.remove('hidden'); }
 
-            if (data.chart_data) {
-                noChart.classList.add('hidden');
-                chartContainer.style.display = 'block';
-                currentChartData = data.chart_data;
-                renderChart(data.chart_data);
-            } else {
-                chartContainer.style.display = 'none';
-                noChart.classList.remove('hidden');
-            }
-
-            // Map (if neighborhood data)
             const mapContainer = document.getElementById('mapContainer');
             const noMap = document.getElementById('noMap');
+            if (hasNeighborhoodData && data.chart_data) { noMap.classList.add('hidden'); mapContainer.style.display = 'block'; renderMap(data.chart_data); }
+            else { mapContainer.style.display = 'none'; noMap.classList.remove('hidden'); }
 
-            if (hasNeighborhoodData && data.chart_data) {
-                noMap.classList.add('hidden');
-                mapContainer.style.display = 'block';
-                renderMap(data.chart_data);
-            } else {
-                mapContainer.style.display = 'none';
-                noMap.classList.remove('hidden');
-            }
-
-            // Insights
             const insightsContent = document.getElementById('insightsContent');
             const noInsights = document.getElementById('noInsights');
-
             if (data.insights) {
-                noInsights.classList.add('hidden');
-                insightsContent.classList.remove('hidden');
-                // Convert markdown-like bullets to HTML
-                const formatted = data.insights
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/^\* /gm, '<li>')
-                    .replace(/^- /gm, '<li>')
-                    .split('\n')
-                    .map(line => line.startsWith('<li>') ? line + '</li>' : `<p>${line}</p>`)
-                    .join('');
+                noInsights.classList.add('hidden'); insightsContent.classList.remove('hidden');
+                const formatted = data.insights.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^\* /gm, '<li>').replace(/^- /gm, '<li>').split('\n').map(line => line.startsWith('<li>') ? line + '</li>' : `<p>${line}</p>`).join('');
                 insightsContent.innerHTML = `<ul class="list-disc list-inside space-y-2 text-gray-700">${formatted}</ul>`;
-            } else {
-                insightsContent.classList.add('hidden');
-                noInsights.classList.remove('hidden');
-            }
+            } else { insightsContent.classList.add('hidden'); noInsights.classList.remove('hidden'); }
 
-            // SQL
             document.getElementById('sqlCode').textContent = data.sql || 'No SQL generated';
-
-            // Validation
             renderValidation(data.validation, data.bias_warnings);
-
-            // Sources/Citations
             renderSources(data.citations);
-
-            // Show data tab by default
             showTab('data');
         }
 
+        // =====================================================
+        // VALIDATION / SOURCES / CHARTS / MAP (unchanged logic)
+        // =====================================================
         function renderValidation(validation, biasWarnings) {
             const statusEl = document.getElementById('validationStatus');
             const biasEl = document.getElementById('biasWarnings');
-
-            // Validation status
             if (validation) {
-                const passed = validation.passed;
-                const warnings = validation.warnings || [];
-                const errors = validation.errors || [];
-
+                const passed = validation.passed, warnings = validation.warnings || [], errors = validation.errors || [];
                 let statusHtml = '';
                 if (passed && warnings.length === 0) {
-                    statusHtml = `
-                        <div class="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span><strong>Validation Passed:</strong> Results match ground-truth calculations.</span>
-                        </div>
-                    `;
+                    statusHtml = '<div class="flex items-center gap-2 text-green-700 bg-green-50 p-4 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span><strong>Validation Passed:</strong> Results match ground-truth calculations.</span></div>';
                 } else {
                     let items = [];
                     errors.forEach(e => items.push(`<li class="text-red-700">${e}</li>`));
                     warnings.forEach(w => items.push(`<li class="text-yellow-700">${w}</li>`));
-
                     const bgColor = errors.length > 0 ? 'bg-red-50' : 'bg-yellow-50';
-                    statusHtml = `
-                        <div class="${bgColor} p-3 rounded-lg">
-                            <p class="font-semibold mb-2">${errors.length > 0 ? 'Validation Issues:' : 'Validation Warnings:'}</p>
-                            <ul class="list-disc list-inside space-y-1 text-sm">${items.join('')}</ul>
-                        </div>
-                    `;
+                    statusHtml = `<div class="${bgColor} p-4 rounded-xl"><p class="font-heading font-semibold mb-2">${errors.length > 0 ? 'Validation Issues:' : 'Validation Warnings:'}</p><ul class="list-disc list-inside space-y-1 text-sm">${items.join('')}</ul></div>`;
                 }
                 statusEl.innerHTML = statusHtml;
-            } else {
-                statusEl.innerHTML = '<p class="text-gray-500">No validation data available.</p>';
-            }
+            } else { statusEl.innerHTML = '<p class="text-gray-400 font-heading">No validation data available.</p>'; }
 
-            // Bias warnings
             if (biasWarnings && biasWarnings.length > 0) {
-                let biasHtml = '<h3 class="font-semibold text-gray-700 mb-2">Data Interpretation Considerations:</h3>';
+                let biasHtml = '<h3 class="font-heading font-semibold text-charcoal mb-3">Data Interpretation Considerations:</h3>';
                 biasWarnings.forEach(w => {
-                    const iconMap = {
-                        'info': { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
-                        'warning': { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
-                        'caution': { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' }
-                    };
+                    const iconMap = { 'info': { bg: 'bg-blue-50', text: 'text-blue-700', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }, 'warning': { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' }, 'caution': { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' } };
                     const style = iconMap[w.severity] || iconMap['info'];
-
-                    biasHtml += `
-                        <div class="${style.bg} ${style.text} p-3 rounded-lg flex items-start gap-2 mb-2">
-                            <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${style.icon}"></path>
-                            </svg>
-                            <div>
-                                <span class="font-medium capitalize">${w.type}:</span>
-                                <span class="text-sm">${w.message}</span>
-                            </div>
-                        </div>
-                    `;
+                    biasHtml += `<div class="${style.bg} ${style.text} p-4 rounded-xl flex items-start gap-3 mb-2"><svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${style.icon}"></path></svg><div><span class="font-heading font-medium capitalize">${w.type}:</span> <span class="text-sm">${w.message}</span></div></div>`;
                 });
                 biasEl.innerHTML = biasHtml;
-            } else {
-                biasEl.innerHTML = '';
-            }
+            } else { biasEl.innerHTML = ''; }
         }
 
         function renderSources(citations) {
             const sourcesEl = document.getElementById('sourcesContent');
-
-            if (!citations || citations.length === 0) {
-                sourcesEl.innerHTML = '<p class="text-gray-500">No source information available.</p>';
-                return;
-            }
-
+            if (!citations || citations.length === 0) { sourcesEl.innerHTML = '<p class="text-gray-400 font-heading">No source information available.</p>'; return; }
             let html = '';
             citations.forEach(c => {
                 if (!c.name) return;
-
-                html += `
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="font-semibold text-gray-800">${c.name}</h3>
-                        <p class="text-sm text-gray-600 mt-1">
-                            Source: <a href="${c.url}" target="_blank" class="text-blue-600 hover:underline">${c.source}</a>
-                        </p>
-                        <p class="text-sm text-gray-600">Date Range: ${c.date_range}</p>
-
-                        ${c.caveats && c.caveats.length > 0 ? `
-                            <div class="mt-3">
-                                <p class="text-sm font-medium text-gray-700">Important Caveats:</p>
-                                <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
-                                    ${c.caveats.map(caveat => `<li>${caveat}</li>`).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
+                html += `<div class="border border-gray-200 rounded-xl p-5"><h3 class="font-heading font-bold text-charcoal">${c.name}</h3><p class="text-sm text-gray-500 mt-1">Source: <a href="${c.url}" target="_blank" class="text-syracuse-blue hover:underline font-medium">${c.source}</a></p><p class="text-sm text-gray-500">Date Range: ${c.date_range}</p>${c.caveats && c.caveats.length > 0 ? `<div class="mt-3"><p class="text-sm font-heading font-medium text-charcoal">Important Caveats:</p><ul class="list-disc list-inside text-sm text-gray-500 mt-1">${c.caveats.map(caveat => `<li>${caveat}</li>`).join('')}</ul></div>` : ''}</div>`;
             });
-
             sourcesEl.innerHTML = html;
         }
 
         function renderChart(chartData) {
             const container = document.getElementById('chartContainer');
-
-            // Clear any existing chart
             Plotly.purge(container);
-
+            const fontConfig = { family: 'Space Grotesk, Inter, sans-serif' };
             if (chartData.type === 'grouped_bar') {
-                const traces = chartData.datasets.map((ds, idx) => ({
-                    x: chartData.labels,
-                    y: ds.data,
-                    name: ds.label,
-                    type: 'bar',
-                    marker: { color: idx === 0 ? '#F76900' : '#003F77' }
-                }));
-
-                Plotly.newPlot(container, traces, {
-                    barmode: 'group',
-                    xaxis: { title: chartData.x_label, tickangle: -45 },
-                    yaxis: { title: 'Count' },
-                    margin: { b: 120, l: 60, r: 40, t: 40 },
-                    legend: { orientation: 'h', y: 1.1 }
-                }, { responsive: true });
-
+                const traces = chartData.datasets.map((ds, idx) => ({ x: chartData.labels, y: ds.data, name: ds.label, type: 'bar', marker: { color: idx === 0 ? '#F76900' : '#003F77' } }));
+                Plotly.newPlot(container, traces, { barmode: 'group', xaxis: { title: chartData.x_label, tickangle: -45 }, yaxis: { title: 'Count' }, margin: { b: 120, l: 60, r: 40, t: 40 }, legend: { orientation: 'h', y: 1.1 }, font: fontConfig }, { responsive: true });
             } else if (chartData.type === 'bar') {
-                const trace = {
-                    x: chartData.labels,
-                    y: chartData.values,
-                    type: 'bar',
-                    marker: {
-                        color: chartData.values,
-                        colorscale: [[0, '#93c5fd'], [1, '#1d4ed8']],
-                        showscale: false
-                    },
-                    text: chartData.values.map(v => v.toLocaleString()),
-                    textposition: 'outside',
-                    hovertemplate: '%{x}<br>Count: %{y:,}<extra></extra>'
-                };
-
-                Plotly.newPlot(container, [trace], {
-                    xaxis: {
-                        title: chartData.x_label,
-                        tickangle: -45,
-                        automargin: true
-                    },
-                    yaxis: {
-                        title: chartData.y_label,
-                        automargin: true
-                    },
-                    margin: { b: 120, l: 80, r: 40, t: 40 },
-                    hoverlabel: { bgcolor: '#1d4ed8' }
-                }, { responsive: true });
-
+                const trace = { x: chartData.labels, y: chartData.values, type: 'bar', marker: { color: chartData.values, colorscale: [[0, '#93c5fd'], [1, '#003F77']], showscale: false }, text: chartData.values.map(v => v.toLocaleString()), textposition: 'outside', hovertemplate: '%{x}<br>Count: %{y:,}<extra></extra>' };
+                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, tickangle: -45, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 120, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#003F77' }, font: fontConfig }, { responsive: true });
             } else if (chartData.type === 'line') {
-                const trace = {
-                    x: chartData.labels,
-                    y: chartData.values,
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    line: { color: '#F76900', width: 3 },
-                    marker: { size: 8, color: '#F76900' },
-                    hovertemplate: '%{x}<br>%{y:,}<extra></extra>'
-                };
-
-                Plotly.newPlot(container, [trace], {
-                    xaxis: {
-                        title: chartData.x_label,
-                        automargin: true
-                    },
-                    yaxis: {
-                        title: chartData.y_label,
-                        automargin: true
-                    },
-                    margin: { b: 80, l: 80, r: 40, t: 40 },
-                    hoverlabel: { bgcolor: '#F76900' }
-                }, { responsive: true });
+                const trace = { x: chartData.labels, y: chartData.values, type: 'scatter', mode: 'lines+markers', line: { color: '#F76900', width: 3 }, marker: { size: 8, color: '#F76900' }, hovertemplate: '%{x}<br>%{y:,}<extra></extra>' };
+                Plotly.newPlot(container, [trace], { xaxis: { title: chartData.x_label, automargin: true }, yaxis: { title: chartData.y_label, automargin: true }, margin: { b: 80, l: 80, r: 40, t: 40 }, hoverlabel: { bgcolor: '#F76900' }, font: fontConfig }, { responsive: true });
             }
         }
 
         function renderMap(chartData) {
             const container = document.getElementById('mapContainer');
-
-            // Clear any existing map
             Plotly.purge(container);
-
-            // Prepare data for scatter map
             const neighborhoods = chartData.labels;
             const values = chartData.values || (chartData.datasets ? chartData.datasets[0].data : []);
-
-            const lats = [];
-            const lons = [];
-            const texts = [];
-            const sizes = [];
-
-            // Normalize values for bubble sizes
-            const maxVal = Math.max(...values);
-            const minSize = 15;
-            const maxSize = 50;
-
+            const lats = [], lons = [], texts = [], sizes = [];
+            const maxVal = Math.max(...values), minSize = 15, maxSize = 50;
             neighborhoods.forEach((name, idx) => {
                 const coords = NEIGHBORHOOD_COORDS[name];
-                if (coords) {
-                    lats.push(coords.lat);
-                    lons.push(coords.lon);
-                    texts.push(`${name}<br>Count: ${values[idx].toLocaleString()}`);
-                    // Scale size based on value
-                    const normalizedSize = minSize + (values[idx] / maxVal) * (maxSize - minSize);
-                    sizes.push(normalizedSize);
+                if (coords) { lats.push(coords.lat); lons.push(coords.lon); texts.push(`${name}<br>Count: ${values[idx].toLocaleString()}`); sizes.push(minSize + (values[idx] / maxVal) * (maxSize - minSize)); }
+            });
+            Plotly.newPlot(container, [{ type: 'scattermapbox', lat: lats, lon: lons, mode: 'markers', marker: { size: sizes, color: values.filter((_, i) => NEIGHBORHOOD_COORDS[neighborhoods[i]]), colorscale: [[0, '#fef3c7'], [0.5, '#f97316'], [1, '#dc2626']], showscale: true, colorbar: { title: 'Count', thickness: 15 } }, text: texts, hoverinfo: 'text' }], { mapbox: { style: 'carto-positron', center: { lat: 43.045, lon: -76.145 }, zoom: 11.5 }, margin: { l: 0, r: 0, t: 0, b: 0 }, showlegend: false, font: { family: 'Space Grotesk, Inter, sans-serif' } }, { responsive: true });
+        }
+
+        // =====================================================
+        // INIT
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            typewriterTick();
+            // Keyboard shortcut: press / to focus search
+            document.addEventListener('keydown', (e) => {
+                if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    stopTypewriter();
+                    questionInput().focus();
                 }
             });
-
-            const trace = {
-                type: 'scattermapbox',
-                lat: lats,
-                lon: lons,
-                mode: 'markers',
-                marker: {
-                    size: sizes,
-                    color: values.filter((_, i) => NEIGHBORHOOD_COORDS[neighborhoods[i]]),
-                    colorscale: [[0, '#fef3c7'], [0.5, '#f97316'], [1, '#dc2626']],
-                    showscale: true,
-                    colorbar: {
-                        title: 'Count',
-                        thickness: 15
-                    }
-                },
-                text: texts,
-                hoverinfo: 'text'
-            };
-
-            const layout = {
-                mapbox: {
-                    style: 'carto-positron',
-                    center: { lat: 43.045, lon: -76.145 },
-                    zoom: 11.5
-                },
-                margin: { l: 0, r: 0, t: 0, b: 0 },
-                showlegend: false
-            };
-
-            Plotly.newPlot(container, [trace], layout, { responsive: true });
-        }
+            // Restart typewriter when input is blurred and empty
+            questionInput().addEventListener('blur', () => { setTimeout(maybeRestartTypewriter, 300); });
+        });
     </script>
 </body>
 </html>
