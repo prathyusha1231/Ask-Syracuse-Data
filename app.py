@@ -46,10 +46,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.plot.ly; "
+            "worker-src 'self' blob:; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data:; "
-            "connect-src 'self'"
+            "img-src 'self' data: https://*.basemaps.cartocdn.com https://*.global.ssl.fastly.net; "
+            "connect-src 'self' https://*.basemaps.cartocdn.com https://*.global.ssl.fastly.net"
         )
         return response
 

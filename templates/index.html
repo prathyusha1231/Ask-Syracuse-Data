@@ -14,7 +14,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" integrity="sha384-Hl48Kq2HifOWdXEjMsKo6qxqvRLTYqIGbvlENBmkHAxZKIGCXv43H6W1jA671RzC" crossorigin="anonymous"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
     <!-- Custom Tailwind Config -->
     <script>
@@ -1278,9 +1278,8 @@
                 chartContainer.style.display = 'block';
                 currentChartData = data.chart_data;
                 chartRealData = data.chart_data;
-                // Enhancement 8: Render chart with zero values, animate on tab switch
-                renderChartWithZeros(data.chart_data);
-                chartAnimationPending = true;
+                renderChart(data.chart_data);
+                chartAnimationPending = false;
             } else {
                 chartContainer.style.display = 'none';
                 noChart.classList.remove('hidden');
