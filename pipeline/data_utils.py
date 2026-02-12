@@ -30,7 +30,7 @@ NULL_STRATEGIES: Dict[str, Dict[str, Dict[str, Any]]] = {
     },
     "crime": {
         "code_defined": {"strategy": "label", "label": "Unspecified"},
-        "arrest": {"strategy": "label", "label": "Unknown"},
+        "arrest": {"strategy": "label", "label": "No"},
         "neighborhood": {"strategy": "label", "label": "Unknown"},
     },
     "unfit_properties": {
@@ -135,6 +135,8 @@ def load_rental_registry() -> pd.DataFrame:
         date_cols=["completion_date", "valid_until"],
     )
     df = _normalize_sbl(df)
+    # Drop 100% null column (GIS artifact)
+    df = df.drop(columns=["shape"], errors="ignore")
     return _apply_null_handling(df, "rental_registry")
 
 
@@ -247,7 +249,23 @@ CRIME_FILES = [
 
 
 def load_crime() -> pd.DataFrame:
-    """Load Part 1 & Part 2 crime data for all available years (2022-2025)."""
+    """Load Part 1 & Part 2 crime data for all available years (2022-2025).
+
+    Prefers pre-merged crime_merged.csv (with ZIP + neighborhood already computed).
+    Falls back to loading individual CSVs and computing on the fly.
+    """
+    merged_path = DATA_DIR / "crime_merged.csv"
+    if merged_path.exists():
+        df = _load_csv("crime_merged.csv", date_cols=["dateend"])
+        if "dateend" in df.columns:
+            df["dateend"] = pd.to_datetime(df["dateend"], errors="coerce", utc=True)
+        # Ensure zip is nullable int
+        if "zip" in df.columns:
+            df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
+        df = _apply_null_handling(df, "crime")
+        return df
+
+    # Fallback: load individual CSVs and compute ZIP/neighborhood on the fly
     frames = []
     for enriched_name, raw_name, part in CRIME_FILES:
         enriched_path = DATA_DIR / enriched_name
@@ -310,6 +328,8 @@ def load_unfit_properties() -> pd.DataFrame:
     df = _clean_columns(df)
     df = _parse_epoch_ms(df, ["violation_date", "comply_by_date", "status_date", "comp_open_date", "comp_close_date"])
     df = _normalize_sbl(df)
+    # Drop 100% null column
+    df = df.drop(columns=["vacant"], errors="ignore")
     df = _apply_null_handling(df, "unfit_properties")
     return df
 
@@ -319,6 +339,7 @@ def load_trash_pickup() -> pd.DataFrame:
     path = DATA_DIR / "Trash_Pickup_2025.csv"
     df = pd.read_csv(path)
     df = _clean_columns(df)
+    df = df.drop_duplicates()
     df = _normalize_sbl(df)
     # Normalize zip to Int64
     if "zip" in df.columns:
@@ -332,6 +353,7 @@ def load_historical_properties() -> pd.DataFrame:
     path = DATA_DIR / "Historical_Properties.csv"
     df = pd.read_csv(path)
     df = _clean_columns(df)
+    df = df.drop_duplicates()
     df = _normalize_sbl(df)
     if "zip" in df.columns:
         df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
@@ -356,10 +378,11 @@ def load_assessment_roll() -> pd.DataFrame:
 
 
 def load_cityline_requests() -> pd.DataFrame:
-    """Load SYRCityline 311 service requests; derive ZIP from lat/long."""
+    """Load SYRCityline 311 service requests; derive ZIP from lat/long, extract year."""
     path = DATA_DIR / "SYRCityline_Requests.csv"
     df = pd.read_csv(path)
     df = _clean_columns(df)
+    df = df.drop_duplicates()
     # Parse dates with known format: "01/14/2025 - 11:19AM"
     for col in ["created_at_local", "closed_at_local"]:
         if col in df.columns:
@@ -367,6 +390,9 @@ def load_cityline_requests() -> pd.DataFrame:
     if "lat" in df.columns and "lng" in df.columns:
         df = df.rename(columns={"lat": "latitude", "lng": "longitude"})
         df = _assign_zip_from_coords(df)
+    # Extract year for temporal queries
+    if "created_at_local" in df.columns:
+        df["year"] = df["created_at_local"].dt.year
     df = _apply_null_handling(df, "cityline_requests")
     return df
 
@@ -412,6 +438,9 @@ def load_parking_violations() -> pd.DataFrame:
     if "lat" in df.columns and "long" in df.columns:
         df = df.rename(columns={"lat": "latitude", "long": "longitude"})
         df = _assign_zip_from_coords(df)
+    # Extract year for temporal queries
+    if "issued_date" in df.columns:
+        df["year"] = df["issued_date"].dt.year
     df = _apply_null_handling(df, "parking_violations")
     return df
 
@@ -427,6 +456,9 @@ def load_permit_requests() -> pd.DataFrame:
         df = _assign_zip_from_coords(df)
     elif "latitude" in df.columns and "longitude" in df.columns:
         df = _assign_zip_from_coords(df)
+    # Extract year for temporal queries
+    if "issue_date" in df.columns:
+        df["year"] = df["issue_date"].dt.year
     df = _apply_null_handling(df, "permit_requests")
     return df
 

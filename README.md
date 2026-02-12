@@ -22,8 +22,8 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 
 | Category | Dataset | Records | Key Queryable Columns | Description |
 |----------|---------|---------|----------------------|-------------|
-| **Housing & Property** | Code Violations | ~44K | neighborhood, zip, status, year; avg/min/max days_to_comply | Housing code enforcement (2017-present) |
-| | Vacant Properties | ~1.4K | neighborhood, zip | Administratively identified vacancies |
+| **Housing & Property** | Code Violations | ~138K | neighborhood, zip, status, year; avg/min/max days_to_comply | Housing code enforcement (2017-present) |
+| | Vacant Properties | ~1.7K | neighborhood, zip | Administratively identified vacancies |
 | | Rental Registry | ~13K | zip, sbl, completion_type | Registered rental property inspections |
 | | Unfit Properties | 353 | zip, department, complaint_type | Properties declared unfit for habitation |
 | | Historical Properties | 3,486 | zip, nr_eligible, lpss | Landmark and National Register eligible properties |
