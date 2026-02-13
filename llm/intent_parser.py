@@ -28,6 +28,9 @@ def _is_join_query(question: str) -> bool:
     # "neighborhoods with more than N violations" is a HAVING filter
     if re.search(r"with (?:more than|over|at least|fewer than|less than|under) \d+", q):
         return False
+    # "Part 1 vs Part 2" is a within-dataset comparison, not a cross-dataset join
+    if "part" in q and "vs" in q:
+        return False
 
     join_patterns = [
         # rental + violations
@@ -166,6 +169,10 @@ def _detect_metric(question: str) -> tuple:
     Returns (metric, metric_column, distinct_column).
     """
     q = question.lower()
+
+    # "most common X" means count + group_by, NOT count_distinct
+    if "most common" in q:
+        return "count", None, None
 
     # Count distinct
     if any(w in q for w in ["unique", "distinct", "different"]):
@@ -431,7 +438,9 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
         return intent
 
     if "rental" in q:
-        group_by = "zip" if "zip" in q else None
+        group_by = None
+        if "zip" in q or "neighborhood" in q:
+            group_by = "zip"  # rental_registry has no neighborhood; use ZIP as best proxy
 
         if temporal_group:
             if group_by:
@@ -457,7 +466,9 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
 
     if ("crime" in q or "offense" in q) and "parking" not in q:
         group_by = None
-        if "neighborhood" in q:
+        if "part 1" in q and "part 2" in q:
+            group_by = "crime_part"
+        elif "neighborhood" in q:
             group_by = "neighborhood"
         elif "zip" in q:
             group_by = "zip"
@@ -477,6 +488,12 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
         filters = {}
         if year_filter:
             filters["year"] = year_filter
+
+        # "arrest by neighborhood" -> filter arrest=Yes + group by neighborhood
+        if "arrest" in q and group_by != "arrest":
+            filters["arrest"] = {"op": "=", "value": "Yes"}
+        elif "arrest" in q and group_by == "arrest" and "neighborhood" in q:
+            group_by = ["neighborhood", "arrest"]
 
         intent = {
             "dataset": "crime",
@@ -749,7 +766,20 @@ def parse_intent(question: str, llm: Optional[LLMCallable] = None) -> Dict[str, 
     else:
         intent = _heuristic_intent(question)
         if intent is None:
-            raise IntentParsingError("Unable to parse intent without LLM; question unsupported.")
+            # Provide a helpful suggestion instead of a generic error
+            suggestions = []
+            q = question.lower()
+            if any(w in q for w in ["safest", "best", "worst", "should i", "recommend"]):
+                suggestions.append(
+                    "This looks like a subjective or recommendation question. "
+                    "Try asking about specific data instead, e.g. "
+                    "'Crime by neighborhood' or 'Violations by zip code'."
+                )
+            raise IntentParsingError(
+                "Unable to understand this question. "
+                + (suggestions[0] if suggestions else
+                   "Try rephrasing with a specific dataset like 'violations', 'crime', 'parking', 'trees', etc.")
+            )
 
     return intent
 

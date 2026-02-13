@@ -30,7 +30,7 @@ Rules:
 Available datasets:
 - violations: Housing code violations (group_by: neighborhood, complaint_zip, status_type_name, violation, year, month, quarter)
 - vacant_properties: Vacant property records (group_by: neighborhood, zip, vpr_valid, vpr_result, year, month, quarter)
-- crime: Part 1 & 2 crime data 2022-2025 (group_by: code_defined, arrest, neighborhood, zip, year, month, quarter, crime_part)
+- crime: Part 1 & 2 crime data 2022-2025 (group_by: code_defined, arrest, neighborhood, zip, year, month, quarter, crime_part; arrest values: "Yes"/"No"; filter: arrest, year, code_defined, neighborhood, zip, crime_part)
 - rental_registry: Rental property records (group_by: zip, completion_type_name, rrisvalid, year, month)
 - unfit_properties: Properties deemed unfit for habitation (group_by: zip, status_type_name, violation, department_name, complaint_type_name, year, month)
 - trash_pickup: Trash collection schedule (group_by: zip, sanitation, recyclingw)
@@ -42,7 +42,7 @@ Available datasets:
 - bike_infrastructure: Bike lanes/trails/paths (group_by: infrastructure_type)
 - parking_violations: Parking tickets with fine amounts (group_by: zip, description, status, year, month)
 - permit_requests: Building permits (group_by: zip, permit_type, year, month)
-- tree_inventory: City tree inventory (group_by: zip, area, spp_com)
+- tree_inventory: City tree inventory (group_by: zip, area, spp_com; NOTE: "area" is the neighborhood column for trees, use area when user asks about trees by neighborhood)
 - lead_testing: Lead testing by census tract (group_by: census_tract, year)
 
 Computed columns (for avg/min/max/sum metrics):
@@ -115,6 +115,15 @@ A: {"dataset": "crime", "metric": "count", "group_by": ["month"], "filters": {},
 
 Q: "Violations by neighborhood and year"
 A: {"dataset": "violations", "metric": "count", "group_by": ["neighborhood", "year"], "filters": {}, "limit": null}
+
+Q: "Most common tree species"
+A: {"dataset": "tree_inventory", "metric": "count", "group_by": ["spp_com"], "filters": {}, "limit": null}
+
+Q: "Trees by neighborhood"
+A: {"dataset": "tree_inventory", "metric": "count", "group_by": ["area"], "filters": {}, "limit": null}
+
+Q: "How many crimes resulted in arrest by neighborhood?"
+A: {"dataset": "crime", "metric": "count", "group_by": ["neighborhood"], "filters": {"arrest": {"op": "=", "value": "Yes"}}, "limit": null}
 """
 
 NL_TO_JOIN_INTENT_PROMPT = """
@@ -187,7 +196,7 @@ Available tables and columns:
   status_type_name, violation, complaint_address, complaint_zip, sbl, neighborhood
 - vacant_properties: sbl, propertyaddress, zip, neighborhood, vpr_valid, vpr_result,
   completion_date, valid_until
-- crime: dateend, code_defined, address, arrest, latitude, longitude, neighborhood, zip, year, crime_part (data spans 2022-2025; 2025 is partial; crime_part: 1=Part 1 serious, 2=Part 2 less serious)
+- crime: dateend, code_defined, address, arrest (values: 'Yes' or 'No'), latitude, longitude, neighborhood, zip, year, crime_part (data spans 2022-2025; 2025 is partial; crime_part: 1=Part 1 serious, 2=Part 2 less serious)
 - rental_registry: sbl, propertyaddress, zip, completion_date, valid_until,
   completion_type_name, rrisvalid
 - unfit_properties: complaint_number, address, zip, sbl, violation, violation_date,

@@ -284,12 +284,17 @@ def format_number(val):
     return val
 
 
+YEAR_COLUMNS = {"year", "month", "quarter"}
+
 def format_value(val, column_name: str = ""):
     """Format any value, handling nulls and empty strings."""
     if pd.isna(val) or val == "" or val is None:
         return "Unknown"
     # ZIP columns should display as plain strings (e.g. "13202", not "13,202")
     if column_name in ZIP_GROUP_COLUMNS and _is_numeric(val):
+        return str(int(val))
+    # Year/month/quarter columns should display as plain integers (e.g. "2023", not "2,023")
+    if column_name in YEAR_COLUMNS and _is_numeric(val):
         return str(int(val))
     if _is_numeric(val):
         return format_number(val)
@@ -900,12 +905,31 @@ async def query_data(request: Request, req: QueryRequest):
     metadata = result.get("metadata", {})
 
     if not isinstance(df, pd.DataFrame) or df.empty:
+        q_lower = req.question.lower()
+        if any(w in q_lower for w in ["safest", "best", "worst", "should i", "recommend", "which zip should"]):
+            error_msg = ("No results returned. This looks like a subjective or recommendation question. "
+                        "Try asking about specific data instead, e.g. 'Crime by neighborhood' or 'Violations by zip code'.")
+        else:
+            error_msg = "No results returned. Try rephrasing your question or checking the dataset name."
         return QueryResponse(
             success=False,
-            error="No results returned",
+            error=error_msg,
             sql=result.get("sql"),
             metadata=metadata,
         )
+
+    # Push "Unknown" / null / "Not Recorded" label values to bottom of grouped results
+    group_by = metadata.get("group_by")
+    group_list = [group_by] if isinstance(group_by, str) else (group_by or [])
+    if group_list and len(df) > 1:
+        first_group = group_list[0]
+        if first_group in df.columns:
+            unknown_labels = {"Unknown", "Not Recorded", "Not Scheduled", "Unspecified"}
+            is_null = df[first_group].isna()
+            is_unknown_label = df[first_group].isin(unknown_labels) if df[first_group].dtype == object else pd.Series(False, index=df.index)
+            is_bottom = is_null | is_unknown_label
+            if is_bottom.any():
+                df = pd.concat([df[~is_bottom], df[is_bottom]], ignore_index=True)
 
     # Format columns
     columns = [get_readable_column(col, metadata) for col in df.columns]
@@ -992,6 +1016,13 @@ async def query_data(request: Request, req: QueryRequest):
 
     # Generate description
     description = generate_description(df, metadata)
+
+    # Add note when user asked for neighborhood but data only has ZIP
+    if "neighborhood" in req.question.lower():
+        group_by = metadata.get("group_by")
+        group_list = [group_by] if isinstance(group_by, str) else (group_by or [])
+        if any(g in ZIP_GROUP_COLUMNS for g in group_list) and not any(g in NEIGHBORHOOD_GROUP_COLUMNS for g in group_list):
+            description += " (Note: neighborhood data not available for this dataset, showing by ZIP code instead.)"
 
     # Generate insights
     insights = generate_insights(df, metadata, req.question)

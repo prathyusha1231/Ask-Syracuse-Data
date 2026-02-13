@@ -75,7 +75,7 @@ DATASETS: Dict[str, Dict[str, Any]] = {
         "allowed_filters": {
             "year": "int", "code_defined": "text",
             "neighborhood": "text", "zip": "text",
-            "crime_part": "int",
+            "crime_part": "int", "arrest": "text",
         },
         "allowed_distinct_columns": ["address", "neighborhood", "zip"],
         "computed_columns": {},
@@ -521,6 +521,19 @@ def validate_intent(intent: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError(f"Unsupported dataset: {dataset_raw}")
 
     cfg = DATASETS[dataset]
+
+    # Dataset-specific group_by aliases (e.g. "neighborhood" -> "area" for tree_inventory)
+    DATASET_GROUP_ALIASES = {
+        "tree_inventory": {"neighborhood": "area"},
+    }
+    ds_aliases = DATASET_GROUP_ALIASES.get(dataset, {})
+    raw_gb = intent.get("group_by")
+    if raw_gb is not None:
+        if isinstance(raw_gb, list):
+            intent["group_by"] = [ds_aliases.get(str(g).strip().lower(), g) for g in raw_gb]
+        else:
+            key = str(raw_gb).strip().lower()
+            intent["group_by"] = ds_aliases.get(key, raw_gb)
 
     # Validate metric
     metric = intent.get("metric", "count")
