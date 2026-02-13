@@ -464,7 +464,7 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
             intent["having"] = having
         return intent
 
-    if ("crime" in q or "offense" in q) and "parking" not in q:
+    if ("crime" in q or "offense" in q or "arrest" in q) and "parking" not in q:
         group_by = None
         if "part 1" in q and "part 2" in q:
             group_by = "crime_part"
@@ -472,10 +472,16 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
             group_by = "neighborhood"
         elif "zip" in q:
             group_by = "zip"
-        elif "arrest" in q:
-            group_by = "arrest"
         elif "type" in q or "code" in q or "kind" in q:
             group_by = "code_defined"
+
+        # "how many arrests" / "arrests made" -> filter arrest=Yes, don't group by arrest
+        arrest_as_filter = ("arrest" in q and
+                            any(w in q for w in ["how many arrest", "arrests made",
+                                                  "arrests in", "total arrest",
+                                                  "number of arrest"]))
+        if not arrest_as_filter and "arrest" in q and group_by is None:
+            group_by = "arrest"
 
         if temporal_group:
             if group_by:
@@ -489,8 +495,10 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
         if year_filter:
             filters["year"] = year_filter
 
-        # "arrest by neighborhood" -> filter arrest=Yes + group by neighborhood
-        if "arrest" in q and group_by != "arrest":
+        # Arrest filtering: "arrests by neighborhood", "how many arrests in 2024"
+        if arrest_as_filter:
+            filters["arrest"] = {"op": "=", "value": "Yes"}
+        elif "arrest" in q and group_by != "arrest":
             filters["arrest"] = {"op": "=", "value": "Yes"}
         elif "arrest" in q and group_by == "arrest" and "neighborhood" in q:
             group_by = ["neighborhood", "arrest"]

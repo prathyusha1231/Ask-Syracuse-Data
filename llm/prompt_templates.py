@@ -23,7 +23,9 @@ Rules:
 - "group_by" should be an array of field names (or null for totals).
 - "filters" can be simple ({"year": 2020}) or expanded ({"year": {"op": ">=", "value": 2020}}).
   Supported ops: =, >=, <=, between, in, like
-- "having" filters groups by metric threshold (e.g., neighborhoods with >100 violations).
+- "having" filters groups by metric threshold (e.g., neighborhoods with >100 violations). Only use "having" when the question explicitly mentions a numeric threshold. Do NOT use "having" for superlative questions like "which has the most" or "which has the least".
+- For "which has the most/least" questions, just use group_by with limit=null. The results will be sorted automatically.
+- "arrest" questions like "how many arrests" should use filters (arrest = "Yes"), NOT group_by.
 - Do not answer the question or add commentary.
 - Respond with JSON only, no extra text.
 
@@ -124,6 +126,15 @@ A: {"dataset": "tree_inventory", "metric": "count", "group_by": ["area"], "filte
 
 Q: "How many crimes resulted in arrest by neighborhood?"
 A: {"dataset": "crime", "metric": "count", "group_by": ["neighborhood"], "filters": {"arrest": {"op": "=", "value": "Yes"}}, "limit": null}
+
+Q: "Which neighborhood has the most crime?"
+A: {"dataset": "crime", "metric": "count", "group_by": ["neighborhood"], "filters": {}, "limit": null}
+
+Q: "Which zip code has the most violations?"
+A: {"dataset": "violations", "metric": "count", "group_by": ["complaint_zip"], "filters": {}, "limit": null}
+
+Q: "How many arrests were made in 2024?"
+A: {"dataset": "crime", "metric": "count", "group_by": null, "filters": {"arrest": {"op": "=", "value": "Yes"}, "year": {"op": "=", "value": 2024}}, "limit": null}
 """
 
 NL_TO_JOIN_INTENT_PROMPT = """
