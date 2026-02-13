@@ -135,6 +135,17 @@ def run_query(question: str) -> dict:
         note = " (GPT disabled; set OPENAI_API_KEY to enable)" if llm_fn is None else ""
         return _make_error_response(f"Unable to parse intent: {exc}{note}", intent=raw_intent)
 
+    # Check if the parser is asking for location clarification
+    if raw_intent.get("needs_clarification"):
+        return {
+            "result": None,
+            "intent": raw_intent,
+            "metadata": {},
+            "sql": None,
+            "error": None,
+            "clarification": raw_intent,
+        }
+
     # Route to the appropriate query handler
     if raw_intent.get("query_path") == "advanced_sql":
         response = _run_advanced_query(raw_intent["question"])

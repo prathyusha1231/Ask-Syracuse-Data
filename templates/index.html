@@ -1229,7 +1229,11 @@
                 const data = await response.json();
                 hideProgressiveLoading();
                 document.getElementById('loading').classList.add('hidden');
-                if (!data.success) { showError(data.error || 'Query failed'); return; }
+                if (!data.success) {
+                    if (data.clarification) { showClarification(data.clarification); return; }
+                    showError(data.error || 'Query failed');
+                    return;
+                }
                 displayResults(data);
             } catch (err) {
                 hideProgressiveLoading();
@@ -1243,8 +1247,67 @@
         }
 
         function showError(message) {
-            document.getElementById('error').classList.remove('hidden');
-            document.getElementById('errorMessage').textContent = message;
+            const errorDiv = document.getElementById('error');
+            // Reset to default red error styling
+            errorDiv.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-6">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-red-700 font-medium">${message}</span>
+                </div>
+            </div>`;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function showClarification(clar) {
+            const errorDiv = document.getElementById('error');
+            let html = `<div class="bg-amber-50 border-l-4 border-amber-500 rounded-xl p-6">
+                <div class="flex items-start gap-3 mb-4">
+                    <svg class="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span class="text-amber-800 font-semibold text-lg">${clar.message}</span>
+                </div>`;
+
+            // ZIP buttons
+            if (clar.zip_options && clar.zip_options.length > 0) {
+                html += `<div class="mb-3"><span class="text-sm font-semibold text-gray-600 uppercase tracking-wide">ZIP Code</span></div>
+                <div class="flex flex-wrap gap-2 mb-4">`;
+                for (const opt of clar.zip_options) {
+                    html += `<button onclick="submitWithLocation('${opt.value}', '${clar.original_question.replace(/'/g, "\\'")}')"
+                        class="px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm font-medium text-gray-700
+                               hover:bg-amber-100 hover:border-amber-400 transition-colors cursor-pointer shadow-sm">
+                        <span class="font-bold">${opt.label}</span>
+                        <span class="text-xs text-gray-500 ml-1">${opt.detail || ''}</span>
+                    </button>`;
+                }
+                html += `</div>`;
+            }
+
+            // Neighborhood buttons
+            if (clar.neighborhood_options && clar.neighborhood_options.length > 0) {
+                html += `<div class="mb-3"><span class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Neighborhood</span></div>
+                <div class="flex flex-wrap gap-2">`;
+                for (const opt of clar.neighborhood_options) {
+                    html += `<button onclick="submitWithLocation('${opt.value}', '${clar.original_question.replace(/'/g, "\\'")}')"
+                        class="px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm font-medium text-gray-700
+                               hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer shadow-sm">
+                        ${opt.label}
+                    </button>`;
+                }
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+            errorDiv.innerHTML = html;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function submitWithLocation(location, originalQuestion) {
+            questionInput().value = originalQuestion + ' in ' + location;
+            submitQuery();
         }
 
         // =====================================================

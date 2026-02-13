@@ -12,6 +12,53 @@ from .prompt_templates import NL_TO_INTENT_PROMPT, NL_TO_JOIN_INTENT_PROMPT
 
 LLMCallable = Callable[[str], str]
 
+# =============================================================================
+# LOCATION CLARIFICATION
+# =============================================================================
+LOCATION_SENSITIVE_DATASETS = {"trash_pickup", "crime", "violations", "vacant_properties", "snow_routes"}
+PERSONAL_LOCATION_PHRASES = [
+    "my ", "near me", "around me", "in my", "my area", "my neighborhood",
+    "my zip", "around here", "nearby",
+]
+
+# Reverse mapping: neighborhood name (lowercase) -> list of ZIP codes
+NEIGHBORHOOD_TO_ZIPS: Dict[str, list] = {}
+_ZIP_TO_NEIGHBORHOODS_RAW = {
+    "13202": "Downtown, University Hill",
+    "13203": "Northside, Hawley Green, Lincoln Hill",
+    "13204": "Near Westside, Far Westside, Tipperary Hill, Skunk City",
+    "13205": "Southside, South Valley, Elmwood, Brighton",
+    "13206": "Eastside, Meadowbrook, Salt Springs",
+    "13207": "South Valley, Strathmore, Winkworth",
+    "13208": "Northside, Sedgwick, Court-Woodlawn, Prospect Hill",
+    "13210": "University Neighborhood, Outer Comstock",
+    "13214": "Westside",
+    "13215": "South Valley",
+    "13219": "Far Westside, Lakefront",
+    "13224": "Eastside, Meadowbrook",
+}
+for _zip, _names in _ZIP_TO_NEIGHBORHOODS_RAW.items():
+    for _nb in _names.split(", "):
+        NEIGHBORHOOD_TO_ZIPS.setdefault(_nb.lower(), []).append(_zip)
+
+
+def _needs_location_clarification(question: str, dataset: str) -> bool:
+    """Check if a question needs the user to specify their location."""
+    if dataset not in LOCATION_SENSITIVE_DATASETS:
+        return False
+    q = question.lower()
+    has_personal = any(phrase in q for phrase in PERSONAL_LOCATION_PHRASES)
+    if not has_personal:
+        return False
+    # Already has a Syracuse ZIP code?
+    if re.search(r"\b132\d{2}\b", q):
+        return False
+    # Already has a known neighborhood name?
+    for nb_name in NEIGHBORHOOD_TO_ZIPS:
+        if nb_name in q:
+            return False
+    return True
+
 
 class IntentParsingError(Exception):
     """Raised when an intent cannot be parsed or validated."""
@@ -369,6 +416,27 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
     # Detect year filter
     year_filter = _extract_year_filter(question)
 
+    # --- Detect dataset for clarification check ---
+    detected_dataset = None
+    if "violation" in q:
+        detected_dataset = "violations"
+    elif "vacant" in q:
+        detected_dataset = "vacant_properties"
+    elif ("crime" in q or "offense" in q or "arrest" in q) and "parking" not in q:
+        detected_dataset = "crime"
+    elif any(w in q for w in ["trash", "garbage", "sanitation", "recycling"]):
+        detected_dataset = "trash_pickup"
+    elif "snow" in q and "route" in q:
+        detected_dataset = "snow_routes"
+
+    if detected_dataset and _needs_location_clarification(question, detected_dataset):
+        return {
+            "needs_clarification": True,
+            "clarification_type": "location",
+            "detected_dataset": detected_dataset,
+            "original_question": question,
+        }
+
     # Single-dataset queries
     if "violation" in q:
         group_by = None
@@ -547,18 +615,40 @@ def _heuristic_intent(question: str) -> Optional[Dict[str, Any]]:
     # --- Trash Pickup ---
     if "trash" in q or "garbage" in q or "sanitation" in q or "recycling" in q:
         group_by = None
-        if "zip" in q:
+        # Schedule-type questions: "when does", "what day", "picked up"
+        is_schedule_query = any(w in q for w in ["when", "what day", "picked up", "pick up", "pickup day"])
+
+        if is_schedule_query and re.search(r"\b\d{5}\b", q):
+            # "When does my trash get picked up in 13205?" -> group by day, filter by ZIP
+            group_by = "sanitation"
+        elif "zip" in q:
             group_by = "zip"
         elif "day" in q or "schedule" in q or "monday" in q or "tuesday" in q or "wednesday" in q or "thursday" in q or "friday" in q:
             group_by = "sanitation"
         elif "recycl" in q or "week" in q:
             group_by = "recyclingw"
+        elif is_schedule_query:
+            group_by = "sanitation"
 
         # Handle day-specific filter
         filters = {}
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in q:
                 filters["sanitation"] = {"op": "=", "value": day.capitalize()}
+
+        # Extract ZIP filter from question
+        zip_match = re.search(r"\b(132\d{2})\b", q)
+        if zip_match and group_by != "zip":
+            filters["zip"] = {"op": "=", "value": int(zip_match.group(1))}
+
+        # Match neighborhood name → ZIP for trash_pickup
+        if "zip" not in filters:
+            for nb_name, zips in NEIGHBORHOOD_TO_ZIPS.items():
+                if nb_name in q:
+                    filters["zip"] = {"op": "=", "value": int(zips[0])}
+                    if group_by is None:
+                        group_by = "sanitation"
+                    break
 
         intent = {"dataset": "trash_pickup", "metric": metric, "group_by": group_by, "filters": filters}
         if distinct_column:
@@ -754,6 +844,29 @@ def parse_intent(question: str, llm: Optional[LLMCallable] = None) -> Dict[str, 
     """
     if not question or not question.strip():
         raise IntentParsingError("Question is empty or missing.")
+
+    # Check for location clarification before any processing
+    q_lower = question.lower()
+    if any(phrase in q_lower for phrase in PERSONAL_LOCATION_PHRASES):
+        # Detect dataset from question
+        _ds = None
+        if "violation" in q_lower:
+            _ds = "violations"
+        elif "vacant" in q_lower:
+            _ds = "vacant_properties"
+        elif ("crime" in q_lower or "offense" in q_lower or "arrest" in q_lower) and "parking" not in q_lower:
+            _ds = "crime"
+        elif any(w in q_lower for w in ["trash", "garbage", "sanitation", "recycling"]):
+            _ds = "trash_pickup"
+        elif "snow" in q_lower and "route" in q_lower:
+            _ds = "snow_routes"
+        if _ds and _needs_location_clarification(question, _ds):
+            return {
+                "needs_clarification": True,
+                "clarification_type": "location",
+                "detected_dataset": _ds,
+                "original_question": question,
+            }
 
     # Check if this needs the advanced SQL path (only when LLM is available)
     if llm and _needs_advanced_sql(question):

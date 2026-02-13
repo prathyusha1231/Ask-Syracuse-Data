@@ -397,7 +397,7 @@ def generate_insights(df: pd.DataFrame, metadata: dict, question: str) -> str | 
 
         # Add ZIP-to-neighborhood context when results are grouped by ZIP
         zip_context = ""
-        group_by = metadata.get("group_by", [])
+        group_by = metadata.get("group_by") or []
         if isinstance(group_by, str):
             group_by = [group_by]
         has_zip_group = any(g in ZIP_GROUP_COLUMNS for g in group_by)
@@ -850,6 +850,7 @@ class QueryResponse(BaseModel):
     validation: dict | None = None
     bias_warnings: list[dict] | None = None
     citations: list[dict] | None = None
+    clarification: dict | None = None
     error: str | None = None
 
 
@@ -889,6 +890,41 @@ async def query_data(request: Request, req: QueryRequest):
 
     query_id = str(uuid.uuid4())
     result = run_query(req.question)
+
+    # Handle location clarification
+    if result.get("clarification"):
+        clar = result["clarification"]
+        dataset = clar.get("detected_dataset", "")
+        original_q = clar.get("original_question", req.question)
+
+        # Build ZIP options
+        zip_options = [
+            {"value": z, "label": z, "detail": n}
+            for z, n in ZIP_TO_NEIGHBORHOODS.items()
+        ]
+
+        # Build neighborhood options (for datasets that support neighborhood grouping)
+        neighborhood_options = []
+        datasets_with_neighborhoods = {"crime", "violations", "vacant_properties"}
+        if dataset in datasets_with_neighborhoods:
+            neighborhood_options = [
+                {"value": name, "label": name}
+                for name in sorted(NEIGHBORHOOD_COORDS_PY.keys())
+                if name not in ("Not Recorded", "Unknown")
+            ]
+
+        return QueryResponse(
+            success=False,
+            query_id=query_id,
+            clarification={
+                "type": "location",
+                "message": "Which area are you asking about? Pick a ZIP code or neighborhood below.",
+                "original_question": original_q,
+                "dataset": dataset,
+                "zip_options": zip_options,
+                "neighborhood_options": neighborhood_options,
+            },
+        )
 
     if result.get("error"):
         return QueryResponse(
