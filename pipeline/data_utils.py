@@ -262,9 +262,9 @@ def load_crime() -> pd.DataFrame:
         # Ensure zip is nullable int
         if "zip" in df.columns:
             df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
-        # Filter out stray pre-2022 records (data entry artifacts from Part 2 2023 CSV)
+        # Filter out stray pre-2022 records and null dates (data entry artifacts)
         if "dateend" in df.columns:
-            df = df[df["dateend"].isna() | (df["dateend"] >= "2022-01-01")]
+            df = df[df["dateend"].notna() & (df["dateend"] >= "2022-01-01")]
         df = _apply_null_handling(df, "crime")
         return df
 
@@ -304,9 +304,9 @@ def load_crime() -> pd.DataFrame:
     if "dateend" in df.columns:
         df["dateend"] = pd.to_datetime(df["dateend"], errors="coerce", utc=True)
 
-    # Filter out stray pre-2022 records (data entry artifacts from Part 2 2023 CSV)
+    # Filter out stray pre-2022 records and null dates (data entry artifacts)
     if "dateend" in df.columns:
-        df = df[df["dateend"].isna() | (df["dateend"] >= "2022-01-01")]
+        df = df[df["dateend"].notna() & (df["dateend"] >= "2022-01-01")]
 
     df = _apply_null_handling(df, "crime")
 

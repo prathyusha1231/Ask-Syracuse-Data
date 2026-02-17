@@ -6,14 +6,14 @@ __pycache__/
 # Virtual environment
 venv/
 
-# Local documents to exclude
+# Local documents to exclude (keep locally, never push)
 Research_Task_09.docx
 Research_Task_09_Instructions.txt
-ResponseSummary.pdf
-ResponseSummary (1).pdf
-week5-6.pdf
-week7-8.pdf
-week9-10.pdf
+ResponseSummary*.pdf
+docs/ResponseSummary*.pdf
+week*.pdf
+docs/week*.pdf
+docs/plan.md
 hybrid_architectures.md
 IMPLEMENTATION_LOG.txt
 plan.md
@@ -23,6 +23,7 @@ geocode_cache.json
 
 # Windows artifacts
 nul
+.pytest_cache/
 
 # Secrets / env
 .env
@@ -30,3 +31,15 @@ nul
 # Claude Code
 .claude/
 CLAUDE.md
+
+# Temp files
+*.tmp
+~$*
+test_fixes.py
+
+# Screenshots (local reference only)
+screenshots/
+
+# Stray temp file paths
+C*/
+Usersprath*
