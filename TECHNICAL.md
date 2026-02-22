@@ -123,7 +123,7 @@ Ask-Syracuse-Data/
 |   |-- GET  /api/health            # Health check
 |   |-- GET  /                      # Serves index.html
 |   |-- generate_insights()         # GPT-4o-mini data insights
-|   |-- generate_map_data()         # ZIP/neighborhood/point maps
+|   |-- generate_map_data()         # ZIP/neighborhood/point/route line maps
 |   +-- DATA_CITATIONS              # Source attribution for 16 datasets
 |
 |-- pipeline/                       # Core query pipeline
@@ -255,7 +255,7 @@ Process a natural language question about Syracuse data.
 
 **Chart types**: `bar`, `line`, `grouped_bar` (auto-selected based on query type)
 
-**Map types**: `neighborhood_bubble`, `zip_bubble`, `point` (auto-selected based on group-by column)
+**Map types**: `neighborhood_bubble`, `zip_bubble`, `point`, `line` (auto-selected based on group-by column and dataset; `line` type used for bike infrastructure and snow route maps)
 
 ### `POST /api/feedback`
 

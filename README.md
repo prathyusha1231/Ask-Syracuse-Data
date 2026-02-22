@@ -6,7 +6,7 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 
 - **Natural Language Queries**: Ask questions like "How many violations by neighborhood?" or "What's the average parking fine?"
 - **16 Datasets**: Housing, public safety, city services, infrastructure, and public health data
-- **Interactive Web UI**: Landing page with dataset explorer, charts, maps, and tabbed results
+- **Interactive Web UI**: Landing page with dataset explorer, charts, maps (bubble, point, and route line maps), and tabbed results
 - **Cross-Dataset Analysis**: Join violations with rental properties, vacant properties, crime data, and unfit properties
 - **Hybrid Architecture**: Simple queries use deterministic SQL; complex queries use LLM-generated SQL with guardrails
 - **Auto-Insights**: AI-generated insights explaining what the data means
