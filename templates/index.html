@@ -1520,6 +1520,8 @@
                 }
             } else if (mapData.type === 'point') {
                 renderPointMap(container, mapData, fontConfig, center, 12.0);
+            } else if (mapData.type === 'line') {
+                renderLineMap(container, mapData, fontConfig, center, 12.0);
             }
         }
 
@@ -1577,6 +1579,32 @@
                 mapbox: { style: 'carto-positron', center: center, zoom: zoom },
                 margin: { l: 0, r: 0, t: 30, b: 0 }, showlegend: false, font: fontConfig,
                 title: { text: `${mapData.dataset_label} (${mapData.point_count.toLocaleString()} points)`, font: { size: 14, family: 'Space Grotesk' } }
+            }, { responsive: true });
+        }
+
+        function renderLineMap(container, mapData, fontConfig, center, zoom) {
+            // Group routes by type for legend
+            const groups = {};
+            mapData.routes.forEach(r => {
+                const key = r.type;
+                if (!groups[key]) groups[key] = { lats: [], lons: [], texts: [], color: r.color };
+                // Add route coords with null separator for disconnected segments
+                groups[key].lats.push(...r.lats, null);
+                groups[key].lons.push(...r.lons, null);
+                groups[key].texts.push(...r.lats.map(() => r.hover), null);
+            });
+            const traces = Object.entries(groups).map(([name, g]) => ({
+                type: 'scattermapbox', lat: g.lats, lon: g.lons, mode: 'lines',
+                line: { color: g.color, width: 3 }, name: name,
+                text: g.texts, hoverinfo: 'text'
+            }));
+            const showLegend = Object.keys(groups).length > 1;
+            Plotly.newPlot(container, traces, {
+                mapbox: { style: 'carto-positron', center: center, zoom: zoom },
+                margin: { l: 0, r: 0, t: 30, b: 0 }, showlegend: showLegend,
+                legend: { orientation: 'h', y: 1.02, font: { size: 12 } },
+                title: { text: mapData.title || '', font: { size: 14, family: 'Space Grotesk' } },
+                font: fontConfig
             }, { responsive: true });
         }
 

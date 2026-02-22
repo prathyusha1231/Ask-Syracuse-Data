@@ -20,6 +20,8 @@ import datetime
 import pandas as pd
 from openai import OpenAI
 
+import json
+
 from pipeline.main import run_query
 from pipeline.data_utils import SYRACUSE_ZIP_CENTROIDS
 from llm.openai_client import load_api_key
@@ -620,7 +622,89 @@ def generate_map_data(df: pd.DataFrame, metadata: dict, raw_df=None) -> dict | N
             and "longitude" in raw_df.columns):
         return _build_point_map(raw_df, dataset)
 
+    # Case 4: Route line maps for bike infrastructure and snow routes
+    if dataset == "bike_infrastructure" and BIKE_INFRA_FEATURES:
+        return _build_bike_route_map()
+    if dataset == "snow_routes" and SNOW_ROUTE_FEATURES:
+        return _build_snow_route_map()
+
     return None
+
+
+# =============================================================================
+# GEOJSON ROUTE DATA (bike infrastructure & snow routes)
+# =============================================================================
+_DATA_DIR = _BASE_DIR / "data" / "raw"
+
+
+def _load_geojson_features(filepath):
+    """Load GeoJSON and extract features."""
+    try:
+        with open(filepath) as f:
+            data = json.load(f)
+        return data.get("features", [])
+    except Exception:
+        return []
+
+
+BIKE_INFRA_FEATURES = _load_geojson_features(_DATA_DIR / "bike_infrastructure.geojson")
+SNOW_ROUTE_FEATURES = _load_geojson_features(_DATA_DIR / "snow_routes.geojson")
+
+BIKE_TYPE_COLORS = {
+    "Trail": "#16a34a",
+    "Lanes": "#2563eb",
+    "Bikeway": "#9333ea",
+    "Sharrows": "#ea580c",
+}
+
+
+def _extract_line_coords(geom):
+    """Extract list of (lats, lons) tuples from LineString or MultiLineString."""
+    segments = []
+    gtype = geom.get("type", "")
+    coords_list = geom.get("coordinates", [])
+    if gtype == "MultiLineString":
+        for segment in coords_list:
+            if segment:
+                lons, lats = zip(*[(c[0], c[1]) for c in segment])
+                segments.append((list(lats), list(lons)))
+    elif gtype == "LineString":
+        if coords_list:
+            lons, lats = zip(*[(c[0], c[1]) for c in coords_list])
+            segments.append((list(lats), list(lons)))
+    return segments
+
+
+def _build_bike_route_map():
+    """Build line map data for bike infrastructure, grouped by type."""
+    routes = []
+    for feat in BIKE_INFRA_FEATURES:
+        geom = feat.get("geometry", {})
+        props = feat.get("properties", {})
+        infra_type = props.get("Infrastructure_Type", "Unknown")
+        name = props.get("Trail_Name") or infra_type
+        length = props.get("Length_Mi")
+        color = BIKE_TYPE_COLORS.get(infra_type, "#6b7280")
+        hover = f"{name} ({infra_type})"
+        if length:
+            hover += f"<br>{length:.2f} mi"
+        for lats, lons in _extract_line_coords(geom):
+            routes.append({"lats": lats, "lons": lons,
+                           "color": color, "type": infra_type, "hover": hover})
+    return {"type": "line", "routes": routes, "title": "Bike Infrastructure Routes"}
+
+
+def _build_snow_route_map():
+    """Build line map data for emergency snow routes."""
+    routes = []
+    for feat in SNOW_ROUTE_FEATURES:
+        geom = feat.get("geometry", {})
+        props = feat.get("properties", {})
+        name = props.get("Label") or props.get("CompleteSt") or "Snow Route"
+        for lats, lons in _extract_line_coords(geom):
+            routes.append({"lats": lats, "lons": lons,
+                           "color": "#dc2626", "type": "Snow Route", "hover": name})
+    return {"type": "line", "routes": routes, "title": "Emergency Snow Routes"}
 
 
 # =============================================================================
