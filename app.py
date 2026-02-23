@@ -5,6 +5,7 @@ Deploy: Render, Vercel, or Fly.io
 """
 from __future__ import annotations
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
@@ -58,6 +59,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Static files & Templates
@@ -176,6 +183,27 @@ DATASET_LABELS = {
     "tree_inventory": "Tree Inventory",
     "lead_testing": "Lead Testing",
 }
+
+DATASET_SUGGESTIONS = {
+    "violations": ["Violations by neighborhood", "Violations by year", "Violations by status"],
+    "crime": ["Crime by neighborhood", "Crime by year", "Crime by type"],
+    "rental_registry": ["Rental registrations by ZIP", "Rental registrations by type"],
+    "vacant_properties": ["Vacant properties by neighborhood", "Vacant properties by ZIP"],
+    "unfit_properties": ["Unfit properties by type", "Unfit properties by ZIP"],
+    "trash_pickup": ["Trash pickup by ZIP", "Trash pickup schedule by day"],
+    "historical_properties": ["Historical properties by ZIP", "How many historical properties?"],
+    "assessment_roll": ["Average assessed value by property class", "Assessment roll by ZIP"],
+    "cityline_requests": ["Cityline requests by category", "Cityline requests by year", "Avg time to close cityline requests"],
+    "snow_routes": ["How many snow routes?", "Snow routes by ZIP"],
+    "bike_suitability": ["Bike suitability breakdown", "How many bike segments?"],
+    "bike_infrastructure": ["Bike infrastructure by type", "Total miles of bike lanes"],
+    "parking_violations": ["Parking violations by type", "Avg parking fine by ZIP", "Parking violations by year"],
+    "permit_requests": ["Permit requests by type", "Permit requests by year", "Permit requests by ZIP"],
+    "tree_inventory": ["Trees by neighborhood", "Top tree species", "Avg tree size by area"],
+    "lead_testing": ["Lead testing by year", "Lead testing by census tract"],
+}
+
+GENERIC_SUGGESTIONS = ["Crime by neighborhood", "Violations by year", "Parking violations by type"]
 
 
 # =============================================================================
@@ -407,10 +435,32 @@ def generate_insights(df: pd.DataFrame, metadata: dict, question: str) -> str | 
             zip_lines = [f"  {z}: {n}" for z, n in ZIP_TO_NEIGHBORHOODS.items()]
             zip_context = "\n\nSyracuse ZIP-to-Neighborhood mapping:\n" + "\n".join(zip_lines) + "\n\nWhen discussing ZIP codes, mention which neighborhoods they cover."
 
+        # Build dataset-specific caveats
+        ds = metadata.get("dataset", "")
+        data_caveats = []
+        if ds == "crime":
+            data_caveats.append("Crime data covers 2022-2025 only. 2025 is a partial year (few rows). Any rows before 2022 or with very low counts are incomplete data, NOT a real trend.")
+            data_caveats.append("Addresses are generalized to block level for privacy.")
+        elif ds == "violations":
+            data_caveats.append("Rows with <NA> or missing year are records without a date — they are NOT a separate time period.")
+            data_caveats.append("Negative 'days to comply' values are data quality issues (close date before open date), not meaningful.")
+            data_caveats.append("The jump in violations around 2021 likely reflects a change in reporting/tracking, not a real spike.")
+        elif ds == "parking_violations":
+            data_caveats.append("Parking violation data is primarily 2023-2025. Rows with years far in the future (2027+) or past are data entry errors — ignore them.")
+            data_caveats.append("2025 may be a partial year.")
+        elif ds == "tree_inventory":
+            data_caveats.append("Tree inventory is a point-in-time snapshot, not annual data.")
+        elif ds == "lead_testing":
+            data_caveats.append("Lead testing data covers specific years of testing programs, not comprehensive citywide measurement.")
+
+        caveats_block = ""
+        if data_caveats:
+            caveats_block = "\n\nKNOWN DATA CAVEATS (you MUST account for these):\n" + "\n".join(f"- {c}" for c in data_caveats)
+
         prompt = f"""Analyze this Syracuse Open Data result and provide 2-3 key insights.
 
 Question: {question}
-Context: {context}{zip_context}
+Context: {context}{zip_context}{caveats_block}
 
 Data (first {min(15, total_rows)} of {total_rows} rows):
 {data_summary}
@@ -418,7 +468,7 @@ Data (first {min(15, total_rows)} of {total_rows} rows):
 Provide concise insights (3-4 sentences) that:
 1. Highlight patterns or outliers
 2. Explain practical meaning for Syracuse residents
-3. Note any caveats
+3. Flag data quality issues (rows with <NA>, impossible years, negative values) as data issues — do NOT interpret them as real trends
 
 Use bullet points. Don't repeat raw numbers - interpret them."""
 
@@ -543,32 +593,18 @@ def _build_trash_zip_map(raw_df: pd.DataFrame) -> dict | None:
 
 
 def _build_point_map(raw_df: pd.DataFrame, dataset: str, limit: int = 2000) -> dict | None:
-    """Build a point scatter map from raw row-level lat/long data."""
-    valid = raw_df[raw_df["latitude"].notna() & raw_df["longitude"].notna()].head(limit)
+    """Build a density heatmap from raw row-level lat/long data."""
+    valid = raw_df[raw_df["latitude"].notna() & raw_df["longitude"].notna()]
     if valid.empty:
         return None
 
     lats = _safe_list(valid["latitude"])
     lons = _safe_list(valid["longitude"])
 
-    # Build hover text from a meaningful column
-    text_col = None
-    for candidate in ["address", "location", "full_address", "description",
-                       "spp_com", "category", "property_address"]:
-        if candidate in valid.columns:
-            text_col = candidate
-            break
-
-    texts = []
-    for _, row in valid.iterrows():
-        t = str(row[text_col]) if text_col and not pd.isna(row.get(text_col)) else ""
-        texts.append(t)
-
     return {
-        "type": "point",
+        "type": "density",
         "lats": lats,
         "lons": lons,
-        "texts": texts,
         "dataset_label": DATASET_LABELS.get(dataset, dataset),
         "point_count": len(valid),
     }
@@ -935,6 +971,7 @@ class QueryResponse(BaseModel):
     bias_warnings: list[dict] | None = None
     citations: list[dict] | None = None
     clarification: dict | None = None
+    suggestions: list[str] | None = None
     error: str | None = None
 
 
@@ -1011,10 +1048,12 @@ async def query_data(request: Request, req: QueryRequest):
         )
 
     if result.get("error"):
+        err_dataset = (result.get("metadata") or {}).get("dataset", "")
         return QueryResponse(
             success=False,
             query_id=query_id,
             error=result["error"],
+            suggestions=DATASET_SUGGESTIONS.get(err_dataset, GENERIC_SUGGESTIONS),
             sql=result.get("sql"),
             metadata=result.get("metadata"),
             validation=result.get("validation"),
@@ -1025,15 +1064,18 @@ async def query_data(request: Request, req: QueryRequest):
     metadata = result.get("metadata", {})
 
     if not isinstance(df, pd.DataFrame) or df.empty:
+        empty_dataset = metadata.get("dataset", "")
+        suggestions = DATASET_SUGGESTIONS.get(empty_dataset, GENERIC_SUGGESTIONS)
         q_lower = req.question.lower()
         if any(w in q_lower for w in ["safest", "best", "worst", "should i", "recommend", "which zip should"]):
             error_msg = ("No results returned. This looks like a subjective or recommendation question. "
-                        "Try asking about specific data instead, e.g. 'Crime by neighborhood' or 'Violations by zip code'.")
+                        "Try asking about specific data instead:")
         else:
-            error_msg = "No results returned. Try rephrasing your question or checking the dataset name."
+            error_msg = "No results returned. Try one of these queries:"
         return QueryResponse(
             success=False,
             error=error_msg,
+            suggestions=suggestions,
             sql=result.get("sql"),
             metadata=metadata,
         )

@@ -1219,7 +1219,7 @@
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 60000);
-                const response = await fetch('/api/query', {
+                const response = await fetch('http://127.0.0.1:8005/api/query', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ question }),
@@ -1231,7 +1231,7 @@
                 document.getElementById('loading').classList.add('hidden');
                 if (!data.success) {
                     if (data.clarification) { showClarification(data.clarification); return; }
-                    showError(data.error || 'Query failed');
+                    showError(data.error || 'Query failed', data.suggestions);
                     return;
                 }
                 displayResults(data);
@@ -1246,9 +1246,15 @@
             }
         }
 
-        function showError(message) {
+        function showError(message, suggestions) {
             const errorDiv = document.getElementById('error');
-            // Reset to default red error styling
+            let suggestionsHtml = '';
+            if (suggestions && suggestions.length) {
+                const buttons = suggestions.map(s =>
+                    `<button onclick="fillAndSubmit('${s.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-white border border-red-200 rounded-lg text-sm text-red-700 hover:bg-red-100 hover:border-red-300 transition-colors cursor-pointer">${s}</button>`
+                ).join('');
+                suggestionsHtml = `<div class="flex flex-wrap gap-2 mt-3 ml-9">${buttons}</div>`;
+            }
             errorDiv.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-6">
                 <div class="flex items-center gap-3">
                     <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1256,8 +1262,15 @@
                     </svg>
                     <span class="text-red-700 font-medium">${message}</span>
                 </div>
+                ${suggestionsHtml}
             </div>`;
             errorDiv.classList.remove('hidden');
+        }
+
+        function fillAndSubmit(query) {
+            const input = questionInput();
+            input.value = query;
+            submitQuestion();
         }
 
         function showClarification(clar) {
@@ -1518,6 +1531,8 @@
                 } else {
                     renderBubbleMap(container, mapData, fontConfig, center, 11.0);
                 }
+            } else if (mapData.type === 'density') {
+                renderDensityMap(container, mapData, fontConfig, center, 12.0);
             } else if (mapData.type === 'point') {
                 renderPointMap(container, mapData, fontConfig, center, 12.0);
             } else if (mapData.type === 'line') {
@@ -1567,6 +1582,18 @@
                 mapbox: { style: 'carto-positron', center: center, zoom: zoom },
                 margin: { l: 0, r: 0, t: 30, b: 0 }, showlegend: true,
                 legend: { orientation: 'h', y: 1.02, font: { size: 12 } }, font: fontConfig
+            }, { responsive: true });
+        }
+
+        function renderDensityMap(container, mapData, fontConfig, center, zoom) {
+            Plotly.newPlot(container, [{
+                type: 'densitymapbox', lat: mapData.lats, lon: mapData.lons,
+                radius: 15, colorscale: 'YlOrRd', opacity: 0.7,
+                showscale: true, colorbar: { title: 'Density', thickness: 15 }
+            }], {
+                mapbox: { style: 'carto-positron', center: center, zoom: zoom },
+                margin: { l: 0, r: 0, t: 30, b: 0 }, showlegend: false, font: fontConfig,
+                title: { text: `${mapData.dataset_label} (${mapData.point_count.toLocaleString()} points)`, font: { size: 14, family: 'Space Grotesk' } }
             }, { responsive: true });
         }
 
@@ -1655,7 +1682,7 @@
 
         async function sendFeedbackToServer(rating, comment) {
             try {
-                await fetch('/api/feedback', {
+                await fetch('http://127.0.0.1:8005/api/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
