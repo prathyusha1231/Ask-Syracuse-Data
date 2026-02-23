@@ -41,16 +41,72 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 
 ## Architecture
 
-```
-User Question
-    |
-Complexity Triage (routes by query complexity)
-    |-- Simple/Medium --> Intent JSON --> Schema Validator --> SQL Builder --> DuckDB
-    |   Supports: count, count_distinct, avg/min/max/sum, temporal GROUP BY,
-    |             HAVING, multi GROUP BY, cross-dataset joins
-    |
-    +-- Complex --------> LLM SQL Gen --> SQL Validator (guardrails) --> DuckDB
-        Supports: window functions, CASE WHEN, subqueries, rankings, percentiles
+```mermaid
+flowchart TD
+    A["User Question\n(Natural Language)"]
+    B{"Complexity Triage\nintent_parser.py"}
+
+    A --> B
+
+    subgraph Path1["Path 1: Deterministic"]
+        C["Intent JSON\nGPT-4o-mini or Heuristic"]
+        D["Schema Validator\nschema.py"]
+        E["SQL Builder\nsql_builder.py"]
+        C --> D --> E
+    end
+
+    subgraph Path2["Path 2: LLM SQL"]
+        F["LLM SQL Generation\nopenai_client.py"]
+        G["SQL Validator\nsql_validator.py\nread-only, table allowlist, LIMIT 1000"]
+        F --> G
+    end
+
+    B -- "Simple / Medium" --> C
+    B -- "Complex\nrankings, percentiles,\nwindow functions" --> F
+
+    H[("DuckDB\nin-memory")]
+
+    E --> H
+    G --> H
+
+    subgraph Data["Data Layer: 16 Datasets"]
+        D1["Housing and Property\nviolations, vacant, rental\nunfit, historical, assessment"]
+        D2["Public Safety\ncrime 2022-2025, parking"]
+        D3["City Services\ncityline, trash, permits"]
+        D4["Infrastructure and Health\nbike, snow, trees, lead"]
+    end
+
+    D1 -.->|"data_utils.py"| H
+    D2 -.->|"data_utils.py"| H
+    D3 -.->|"data_utils.py"| H
+    D4 -.->|"data_utils.py"| H
+
+    subgraph PostProcess["Post-Processing"]
+        I["Ground-Truth Validation\nvalidation.py\npandas comparison"]
+        J["Bias Detection\nbias_detection.py\nframing, normalization, selection"]
+        K["AI Insights\nLLM-generated explanation"]
+    end
+
+    H --> I
+    H --> J
+    H --> K
+
+    subgraph Response["API Response: FastAPI"]
+        L["Results + Charts\nbar, line, grouped bar, maps"]
+        M["Validation Report"]
+        N["Bias Warnings + Citations"]
+        O["User Feedback\nthumbs up/down to SQLite"]
+    end
+
+    H --> L
+    I --> M
+    J --> N
+    K --> L
+
+    L --> P["Frontend SPA\nTailwind CSS + Plotly.js"]
+    M --> P
+    N --> P
+    P --> O
 ```
 
 - **Complexity Triage**: Routes queries by complexity — simple/medium queries get deterministic SQL via intent JSON; complex queries get LLM-generated SQL with guardrails
