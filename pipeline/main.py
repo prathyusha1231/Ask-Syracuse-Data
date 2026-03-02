@@ -5,9 +5,12 @@ Supports both single-dataset queries and cross-dataset joins.
 Includes validation against ground-truth and bias detection.
 """
 from __future__ import annotations
+import re
 import sys
 import time
 import logging
+import threading
+from collections import OrderedDict
 import duckdb
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
@@ -15,6 +18,8 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 logger = logging.getLogger(__name__)
 
 SQL_TIMEOUT_SECONDS = 30
+_RESULT_CACHE_MAX = 128
+_RESULT_CACHE_TTL = 300  # 5 minutes
 
 from . import schema
 from .data_utils import (
@@ -34,6 +39,7 @@ from .data_utils import (
     load_permit_requests,
     load_tree_inventory,
     load_lead_testing,
+    load_population,
 )
 from llm.intent_parser import parse_intent
 from llm.openai_client import make_openai_intent_llm, make_openai_sql_llm, load_api_key
@@ -72,6 +78,46 @@ LOADERS = {
 # Entries: {dataset_name: (dataframe, load_timestamp)}
 _df_cache = {}
 _CACHE_TTL_SECONDS = 3600  # Reload data after 1 hour
+
+# Result cache for repeated queries
+_result_cache: OrderedDict = OrderedDict()
+_result_cache_lock = threading.Lock()
+
+
+def _normalize_question(q: str) -> str:
+    """Normalize a question string for cache key purposes."""
+    return re.sub(r"\s+", " ", q.strip().lower())
+
+
+def _get_cached_result(question: str) -> dict | None:
+    """Return cached result if fresh, else None."""
+    key = _normalize_question(question)
+    with _result_cache_lock:
+        entry = _result_cache.get(key)
+        if entry is None:
+            return None
+        result, ts = entry
+        if time.time() - ts > _RESULT_CACHE_TTL:
+            _result_cache.pop(key, None)
+            return None
+        # Move to end (most recently used)
+        _result_cache.move_to_end(key)
+        return result
+
+
+def _store_cached_result(question: str, result: dict):
+    """Store a query result in cache (without raw_df to save memory)."""
+    key = _normalize_question(question)
+    # Strip raw_df (large DataFrame) before caching
+    cached = {k: v for k, v in result.items() if k != "raw_df"}
+    # Copy the result DataFrame to avoid mutation issues
+    if isinstance(cached.get("result"), pd.DataFrame):
+        cached["result"] = cached["result"].copy()
+    with _result_cache_lock:
+        _result_cache[key] = (cached, time.time())
+        # Evict oldest if over limit
+        while len(_result_cache) > _RESULT_CACHE_MAX:
+            _result_cache.popitem(last=False)
 
 
 def _get_cached_df(name: str, loader):
@@ -114,10 +160,94 @@ def _execute_sql_with_timeout(conn, sql: str, timeout: int = SQL_TIMEOUT_SECONDS
             )
 
 
+def _wants_per_capita(question: str) -> bool:
+    """Check if question asks for per-capita / rate normalization."""
+    q = question.lower()
+    return any(phrase in q for phrase in ["per capita", "per person", "per resident", "rate per"])
+
+
+def _add_per_capita_rate(result_df: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+    """Add rate_per_1000 column by joining with population data."""
+    group_by_str = metadata.get("group_by")
+    if not group_by_str:
+        return result_df
+
+    # Determine which column to join on
+    group_list = [g.strip() for g in str(group_by_str).split(",")]
+    join_col = None
+    pop_col = None
+    for g in group_list:
+        if g in ("zip", "complaint_zip"):
+            join_col = g
+            pop_col = "zip"
+            break
+        if g in ("neighborhood", "area"):
+            join_col = g
+            pop_col = "neighborhood"
+            break
+
+    if not join_col:
+        return result_df
+
+    try:
+        pop_df = load_population()
+    except FileNotFoundError:
+        logger.warning("Population data not found, skipping per-capita calculation")
+        return result_df
+
+    # Find the count/value column
+    value_col = None
+    for col in ["count", "count_distinct", "avg", "sum", "min", "max"]:
+        if col in result_df.columns:
+            value_col = col
+            break
+    if not value_col:
+        return result_df
+
+    # Aggregate population by the join column (in case multiple ZIPs map to same neighborhood)
+    if pop_col == "neighborhood":
+        pop_agg = pop_df.groupby("neighborhood", as_index=False)["population"].sum()
+    else:
+        pop_agg = pop_df[["zip", "population"]].copy()
+
+    # Merge
+    df = result_df.copy()
+    if join_col == "complaint_zip":
+        df["_join_key"] = pd.to_numeric(df[join_col], errors="coerce").astype(pd.Int64Dtype())
+        merged = df.merge(pop_agg, left_on="_join_key", right_on=pop_col, how="left")
+        merged = merged.drop(columns=["_join_key", pop_col], errors="ignore")
+    elif pop_col == "neighborhood":
+        merged = df.merge(pop_agg, left_on=join_col, right_on="neighborhood", how="left")
+        if join_col != "neighborhood":
+            merged = merged.drop(columns=["neighborhood"], errors="ignore")
+    else:
+        df["_join_key"] = pd.to_numeric(df[join_col], errors="coerce").astype(pd.Int64Dtype())
+        merged = df.merge(pop_agg, left_on="_join_key", right_on="zip", how="left")
+        merged = merged.drop(columns=["_join_key"], errors="ignore")
+        if join_col != "zip":
+            merged = merged.drop(columns=["zip"], errors="ignore")
+
+    # Calculate rate per 1,000
+    if "population" in merged.columns:
+        merged["rate_per_1000"] = (
+            merged[value_col] / merged["population"] * 1000
+        ).round(2)
+        merged = merged.drop(columns=["population"])
+
+    return merged
+
+
 def run_query(question: str) -> dict:
     """Run the full pipeline and return a structured response."""
     t0 = time.perf_counter()
     logger.info("Query received: %s", question[:200])
+
+    # Check result cache
+    cached = _get_cached_result(question)
+    if cached is not None:
+        logger.info("Cache hit for: %s", question[:100])
+        return cached
+
     llm_fn = None
     api_key = load_api_key()
     if api_key:
@@ -154,6 +284,16 @@ def run_query(question: str) -> dict:
     else:
         response = _run_single_query(raw_intent)
 
+    # Add per-capita rates if requested
+    if (response.get("result") is not None
+            and response.get("error") is None
+            and _wants_per_capita(question)):
+        response["result"] = _add_per_capita_rate(
+            response["result"], response.get("metadata", {})
+        )
+        if "rate_per_1000" in response["result"].columns:
+            response["metadata"]["has_per_capita"] = True
+
     # Run bias detection on successful queries
     if response.get("result") is not None and response.get("error") is None:
         bias_result = run_all_bias_checks(
@@ -173,6 +313,10 @@ def run_query(question: str) -> dict:
         path, status, rows, elapsed,
         (response.get("sql") or "")[:120],
     )
+
+    # Cache successful results
+    if response.get("error") is None:
+        _store_cached_result(question, response)
 
     return response
 
@@ -359,7 +503,7 @@ def _run_join_query(raw_intent: dict) -> dict:
 
     return {
         "result": result_df,
-        "raw_df": _df_cache.get(primary),
+        "raw_df": _df_cache.get(primary, (None,))[0],
         "intent": intent,
         "metadata": metadata,
         "limitations": limitations,

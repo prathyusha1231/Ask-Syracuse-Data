@@ -43,3 +43,6 @@ screenshots/
 # Stray temp file paths
 C*/
 Usersprath*
+
+# Not required
+not required/

@@ -12,7 +12,7 @@ A natural language interface for querying Syracuse Open Data. Ask questions in p
 - **Auto-Insights**: AI-generated insights explaining what the data means
 - **Validation**: Ground-truth comparison ensures query results match direct pandas calculations
 - **Bias Detection**: Automatic warnings for framing, normalization, selection, and context biases
-- **Null Handling**: 12 datasets use "label" strategy — nulls replaced with descriptive text so they appear in GROUP BY results instead of being silently dropped
+- **Null Handling**: 12 datasets use "label" strategy -nulls replaced with descriptive text so they appear in GROUP BY results instead of being silently dropped
 - **Data Citations**: Full source attribution with dataset caveats and limitations
 - **User Feedback**: Thumbs up/down with optional comments, stored in SQLite for tracking query quality
 
@@ -109,7 +109,7 @@ flowchart TD
     P --> O
 ```
 
-- **Complexity Triage**: Routes queries by complexity — simple/medium queries get deterministic SQL via intent JSON; complex queries get LLM-generated SQL with guardrails
+- **Complexity Triage**: Routes queries by complexity -simple/medium queries get deterministic SQL via intent JSON; complex queries get LLM-generated SQL with guardrails
 - **Schema Validation**: Enforces allowed datasets, fields, metrics, and filters
 - **SQL Builder**: Generates deterministic DuckDB queries (single-table, joins via CTE or LEFT JOIN)
 - **SQL Validator**: Guardrails for LLM-generated SQL (read-only, table allowlist, LIMIT 1000)
@@ -121,7 +121,7 @@ flowchart TD
 
 - **Backend**: FastAPI + DuckDB (in-memory SQL on pandas DataFrames)
 - **Frontend**: Tailwind CSS + Plotly.js (single-page app)
-- **LLM**: OpenAI GPT-4o-mini (intent parsing only — never touches data)
+- **LLM**: OpenAI GPT-4o-mini (intent parsing only -never touches data)
 - **Deployment**: Hugging Face Spaces (Docker) or Render.com
 
 ## Setup
@@ -130,7 +130,7 @@ flowchart TD
 
 - Python 3.10+
 - pip
-- (Optional) OpenAI API key for AI-powered features — the app works without it via heuristic fallback
+- OpenAI API key
 
 ### Installation
 
@@ -151,7 +151,7 @@ pip install -r requirements.txt
 mkdir -p data/raw
 # Place all CSV/XLSX files from Syracuse Open Data Portal into data/raw/
 
-# 5. (Optional) Create .env file for AI features
+# 5. Create .env file with your API key
 echo "OPENAI_API_KEY=sk-..." > .env
 
 # 6. Start the web app
@@ -163,7 +163,7 @@ python -m uvicorn app:app --reload
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | No | OpenAI API key for AI intent parsing and insights. Without it, the heuristic parser handles common queries. |
+| `OPENAI_API_KEY` | Yes | OpenAI API key for intent parsing and insights |
 | `PORT` | No | Port for the web server (default: 8000). Set automatically on Render/HF Spaces. |
 
 ## Example Queries
@@ -222,9 +222,8 @@ Download from [Syracuse Open Data](https://data.syr.gov) and place in `data/raw/
 ## LLM Usage
 
 - **Scope**: LLM converts natural language to JSON intent only (Path 1) or generates SQL with guardrails (Path 2)
-- **Heuristic Fallback**: Common queries work without an API key via keyword-based intent parsing
 - **Guardrails**: All intents validated against schema; LLM SQL restricted to read-only, allowed tables only, LIMIT 1000
-- **Data Access**: The LLM never sees raw data — all computations happen in DuckDB
+- **Data Access**: The LLM never sees raw data -all computations happen in DuckDB
 
 ## Validation & Bias Detection
 
@@ -247,8 +246,8 @@ View these in the **Validation** and **Sources** tabs in the web UI.
 Every query result includes thumbs up/down buttons with an optional comment box. Feedback is stored in SQLite (`data/feedback.db`) with full context: question, SQL, dataset, and a unique query ID.
 
 **API Endpoints:**
-- `POST /api/feedback` — Submit feedback (query_id, question, rating, optional comment)
-- `GET /api/feedback/stats` — View totals and recent feedback entries
+- `POST /api/feedback` -Submit feedback (query_id, question, rating, optional comment)
+- `GET /api/feedback/stats` -View totals and recent feedback entries
 
 ## Testing
 
@@ -271,11 +270,11 @@ python -m tests.test_all_datasets
 **Hugging Face Spaces (Docker):**
 1. Create a new Space with Docker SDK (Blank template)
 2. Copy project files + `data/raw/` into the Space repo
-3. Push — the included `Dockerfile` handles the build
-4. Set `OPENAI_API_KEY` as a secret in Space Settings (optional)
+3. Push -the included `Dockerfile` handles the build
+4. Set `OPENAI_API_KEY` as a secret in Space Settings
 
 **Render.com:**
-- `render.yaml` is included — connect your GitHub repo and set `OPENAI_API_KEY` in the dashboard
+- `render.yaml` is included -connect your GitHub repo and set `OPENAI_API_KEY` in the dashboard
 
 ## Limitations
 
@@ -284,7 +283,7 @@ python -m tests.test_all_datasets
 - Counts should be normalized for fair neighborhood comparisons
 - Assessed values may differ from market values
 - Lead testing data is census-tract level (research use)
-- Static CSV snapshots — not live data
+- Static CSV snapshots -not live data
 
 ## License
 

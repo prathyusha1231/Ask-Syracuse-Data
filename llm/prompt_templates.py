@@ -170,6 +170,9 @@ Available datasets and join combinations:
 - crime + vacant_properties: Join by neighborhood or zip
 - unfit_properties + violations: Join by zip or sbl
 - unfit_properties + vacant_properties: Join by zip or sbl
+- assessment_roll + violations: Join by zip or sbl (property values vs code enforcement)
+- permit_requests + violations: Join by zip (renovation activity vs violations)
+- cityline_requests + vacant_properties: Join by zip (311 complaints vs vacancy)
 
 Group-by fields per dataset:
 - violations: neighborhood, complaint_zip, status_type_name, violation
@@ -177,6 +180,9 @@ Group-by fields per dataset:
 - crime: code_defined, arrest, neighborhood, zip
 - rental_registry: zip, completion_type_name, rrisvalid
 - unfit_properties: zip, status_type_name, violation, department_name, complaint_type_name
+- assessment_roll: prop_class_description, property_city, zip
+- permit_requests: zip, permit_type, year, month
+- cityline_requests: zip, category, agency_name, report_source, year, month
 
 Examples:
 Q: "Which zip codes have rental properties with code violations?"

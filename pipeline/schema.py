@@ -437,6 +437,25 @@ ALLOWED_JOINS: Dict[tuple, Dict[str, Any]] = {
         ],
         "description": "Join unfit properties to vacant properties",
     },
+    ("assessment_roll", "violations"): {
+        "join_keys": [
+            {"left": "zip", "right": "complaint_zip", "type": "zip"},
+            {"left": "sbl", "right": "sbl", "type": "sbl"},
+        ],
+        "description": "Join property assessments to code violations",
+    },
+    ("permit_requests", "violations"): {
+        "join_keys": [
+            {"left": "zip", "right": "complaint_zip", "type": "zip"},
+        ],
+        "description": "Join building permits to code violations",
+    },
+    ("cityline_requests", "vacant_properties"): {
+        "join_keys": [
+            {"left": "zip", "right": "zip", "type": "zip"},
+        ],
+        "description": "Join 311 service requests to vacant properties",
+    },
 }
 
 # Aliases for join type detection

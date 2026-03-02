@@ -15,6 +15,7 @@ from pathlib import Path
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+import asyncio
 import sqlite3
 import uuid
 import datetime
@@ -160,6 +161,8 @@ COLUMN_LABELS = {
     "census_tract": "Census Tract",
     "address": "Address",
     "vacant": "Vacant",
+    "rate_per_1000": "Rate per 1,000 Residents",
+    "population": "Population",
 }
 
 # Temporal group columns that indicate time-series data
@@ -1010,7 +1013,7 @@ async def query_data(request: Request, req: QueryRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
     query_id = str(uuid.uuid4())
-    result = run_query(req.question)
+    result = await asyncio.to_thread(run_query, req.question)
 
     # Handle location clarification
     if result.get("clarification"):
@@ -1187,7 +1190,7 @@ async def query_data(request: Request, req: QueryRequest):
             description += " (Note: neighborhood data not available for this dataset, showing by ZIP code instead.)"
 
     # Generate insights
-    insights = generate_insights(df, metadata, req.question)
+    insights = await asyncio.to_thread(generate_insights, df, metadata, req.question)
 
     # Get citations based on datasets used
     citations = []

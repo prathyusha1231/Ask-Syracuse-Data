@@ -117,7 +117,8 @@ def detect_normalization_bias(
         label = ", ".join(geo_matches)
         result.add(
             "normalization",
-            f"Raw counts by {label} may not account for population differences. Higher counts may reflect larger populations, not higher rates.",
+            f"Raw counts by {label} may not account for population differences. Higher counts may reflect larger populations, not higher rates. "
+            f"Try adding 'per capita' to your question for population-normalized rates.",
             "warning"
         )
 
@@ -160,7 +161,8 @@ def detect_selection_bias(
         ),
         "crime": (
             "Crime data reflects reported incidents (2022-2025, Part 1 & 2). Under-reporting varies by crime type "
-            "and neighborhood, affecting apparent patterns. 2025 data is partial."
+            "and neighborhood, affecting apparent patterns. 2025 data is partial. "
+            "Some neighborhoods are approximated from ZIP codes and may not reflect exact boundaries."
         ),
         "vacant_properties": (
             "Vacancy records are administratively identified. Actual vacancy rates may differ "

@@ -189,6 +189,44 @@ def _assign_zip_from_coords(df: pd.DataFrame, lat_col: str = "latitude", lon_col
     return df
 
 
+# Primary neighborhood for each Syracuse ZIP (approximate, for imputing Unknown neighborhoods)
+ZIP_TO_PRIMARY_NEIGHBORHOOD = {
+    "13202": "Downtown",
+    "13203": "Northside",
+    "13204": "Near Westside",
+    "13205": "Southside",
+    "13206": "Eastside",
+    "13207": "South Valley",
+    "13208": "Northside",
+    "13210": "University Neighborhood",
+    "13214": "Westside",
+    "13215": "South Valley",
+    "13219": "Far Westside",
+    "13224": "Eastside",
+}
+
+
+def _impute_neighborhood_from_zip(df: pd.DataFrame) -> pd.DataFrame:
+    """For rows where neighborhood is 'Unknown' and zip is known, fill from ZIP mapping."""
+    if "neighborhood" not in df.columns or "zip" not in df.columns:
+        return df
+    df = df.copy()
+    unknown_mask = df["neighborhood"].astype(str).str.strip().isin(["Unknown", ""])
+    has_zip = df["zip"].notna()
+    impute_mask = unknown_mask & has_zip
+    if impute_mask.any():
+        zip_str = df.loc[impute_mask, "zip"].astype(str).str.replace(r"\.0$", "", regex=True)
+        imputed = zip_str.map(ZIP_TO_PRIMARY_NEIGHBORHOOD)
+        # Only fill where we have a mapping; keep "Unknown" otherwise
+        filled = imputed.fillna("Unknown")
+        df.loc[impute_mask, "neighborhood"] = filled.values
+        count = (filled != "Unknown").sum()
+        if count > 0:
+            import logging
+            logging.getLogger(__name__).info("Imputed %d crime neighborhoods from ZIP codes", count)
+    return df
+
+
 NEIGHBORHOOD_ALIASES = {
     "hawley-green": "Hawley Green",
     "hawley green": "Hawley Green",
@@ -266,6 +304,7 @@ def load_crime() -> pd.DataFrame:
         if "dateend" in df.columns:
             df = df[df["dateend"].notna() & (df["dateend"] >= "2022-01-01")]
         df = _apply_null_handling(df, "crime")
+        df = _impute_neighborhood_from_zip(df)
         return df
 
     # Fallback: load individual CSVs and compute ZIP/neighborhood on the fly
@@ -316,6 +355,7 @@ def load_crime() -> pd.DataFrame:
 
     # Normalize neighborhood names for cross-dataset joins
     df = _normalize_neighborhood(df)
+    df = _impute_neighborhood_from_zip(df)
     return df
 
 
@@ -513,6 +553,15 @@ def load_lead_testing() -> pd.DataFrame:
     return df
 
 
+def load_population() -> pd.DataFrame:
+    """Load population data by ZIP and neighborhood (Census ACS 2020 estimates)."""
+    path = DATA_DIR / "population.csv"
+    df = pd.read_csv(path)
+    df = _clean_columns(df)
+    df["zip"] = pd.to_numeric(df["zip"], errors="coerce").astype(pd.Int64Dtype())
+    return df
+
+
 __all__ = [
     "load_code_violations",
     "load_rental_registry",
@@ -530,4 +579,5 @@ __all__ = [
     "load_permit_requests",
     "load_tree_inventory",
     "load_lead_testing",
+    "load_population",
 ]

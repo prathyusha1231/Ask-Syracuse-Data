@@ -103,6 +103,13 @@ def _is_join_query(question: str) -> bool:
         ("with" in q and "rental" in q and "violation" in q),
         ("with" in q and "vacant" in q and "violation" in q),
         ("with" in q and "rental" in q and "vacant" in q),
+        # assessment + violations
+        ("assessment" in q and "violation" in q),
+        ("property value" in q and "violation" in q),
+        # permit + violations
+        ("permit" in q and "violation" in q),
+        # cityline/311 + vacant
+        (("311" in q or "cityline" in q or "service request" in q) and "vacant" in q),
     ]
 
     return any(join_patterns)
@@ -119,7 +126,7 @@ def _needs_advanced_sql(question: str) -> bool:
         "running total" in q,
         "cumulative" in q,
         "compared to average" in q or "above average" in q or "below average" in q,
-        "rate per" in q or "per capita" in q,
+        ("rate per" in q or "per capita" in q) and "population" in q,  # only advanced if explicitly about population ratios
         "ratio" in q,
         "percent change" in q or "percentage change" in q,
         "rolling" in q and ("average" in q or "mean" in q),
@@ -367,6 +374,47 @@ def _heuristic_join_intent(question: str) -> Optional[Dict[str, Any]]:
             "group_by": None,
             "filters": {},
             "limit": 20,
+        }
+
+    # assessment + violations
+    if ("assessment" in q or "property value" in q) and "violation" in q:
+        join_type = "sbl" if ("specific" in q or "property" in q or "address" in q) else "zip"
+        group_by = "zip" if join_type == "zip" else None
+        return {
+            "query_type": "join",
+            "primary_dataset": "assessment_roll",
+            "secondary_dataset": "violations",
+            "join_type": join_type,
+            "metric": "count",
+            "group_by": group_by,
+            "filters": {},
+            "limit": 20 if join_type == "sbl" else None,
+        }
+
+    # permit + violations
+    if "permit" in q and "violation" in q:
+        return {
+            "query_type": "join",
+            "primary_dataset": "permit_requests",
+            "secondary_dataset": "violations",
+            "join_type": "zip",
+            "metric": "count",
+            "group_by": "zip",
+            "filters": {},
+            "limit": None,
+        }
+
+    # cityline/311 + vacant
+    if ("311" in q or "cityline" in q or "service request" in q) and "vacant" in q:
+        return {
+            "query_type": "join",
+            "primary_dataset": "cityline_requests",
+            "secondary_dataset": "vacant_properties",
+            "join_type": "zip",
+            "metric": "count",
+            "group_by": "zip",
+            "filters": {},
+            "limit": None,
         }
 
     # crime + "vs" (generic comparison)
