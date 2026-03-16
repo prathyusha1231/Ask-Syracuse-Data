@@ -303,6 +303,8 @@ def load_crime() -> pd.DataFrame:
         # Filter out stray pre-2022 records and null dates (data entry artifacts)
         if "dateend" in df.columns:
             df = df[df["dateend"].notna() & (df["dateend"] >= "2022-01-01")]
+            # Re-derive year from filtered dateend to avoid stale values
+            df["year"] = df["dateend"].dt.year
         df = _apply_null_handling(df, "crime")
         df = _impute_neighborhood_from_zip(df)
         return df
