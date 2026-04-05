@@ -96,13 +96,13 @@ def _apply_filters(
                         filtered = filtered[col_num > value]
                     elif op == "<":
                         filtered = filtered[col_num < value]
-                except Exception:
+                except (ValueError, TypeError):
                     pass
             elif op == "between":
                 try:
                     col_num = pd.to_numeric(col, errors="coerce")
                     filtered = filtered[(col_num >= value[0]) & (col_num <= value[1])]
-                except Exception:
+                except (ValueError, TypeError):
                     pass
             elif op == "in":
                 str_vals = [str(v).lower() for v in value]

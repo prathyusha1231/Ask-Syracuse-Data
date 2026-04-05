@@ -9,7 +9,7 @@ from .data_utils import (
     load_code_violations,
     load_rental_registry,
     load_vacant_properties,
-    load_crime_2022,
+    load_crime,
 )
 
 
@@ -150,7 +150,7 @@ def audit_all_datasets() -> Dict[str, Any]:
         "violations": load_code_violations,
         "rental_registry": load_rental_registry,
         "vacant_properties": load_vacant_properties,
-        "crime_2022": load_crime_2022,
+        "crime": load_crime,
     }
 
     report = {"datasets": {}, "summary": {}}

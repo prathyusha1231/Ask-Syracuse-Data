@@ -487,6 +487,8 @@ def _normalize_filter(key: str, value: Any, expected_type: str) -> Dict[str, Any
                 if not isinstance(val, (list, tuple)) or len(val) != 2:
                     raise ValueError(f"Filter '{key}' with 'between' requires [min, max].")
                 val = [int(val[0]), int(val[1])]
+                if val[0] > val[1]:
+                    raise ValueError(f"Filter '{key}' between bounds are reversed: {val[0]} > {val[1]}.")
             elif op == "in":
                 if not isinstance(val, (list, tuple)):
                     raise ValueError(f"Filter '{key}' with 'in' requires a list.")

@@ -229,8 +229,9 @@ def _add_per_capita_rate(result_df: pd.DataFrame, metadata: dict) -> pd.DataFram
 
     # Calculate rate per 1,000
     if "population" in merged.columns:
-        merged["rate_per_1000"] = (
-            merged[value_col] / merged["population"] * 1000
+        valid_pop = merged["population"].notna() & (merged["population"] > 0)
+        merged.loc[valid_pop, "rate_per_1000"] = (
+            merged.loc[valid_pop, value_col] / merged.loc[valid_pop, "population"] * 1000
         ).round(2)
         merged = merged.drop(columns=["population"])
 

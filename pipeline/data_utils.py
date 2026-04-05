@@ -337,7 +337,10 @@ def load_crime() -> pd.DataFrame:
         frames.append(df)
 
     if not frames:
-        raise FileNotFoundError("No crime data CSV files found in data/raw/.")
+        raise FileNotFoundError(
+            f"No crime data CSV files found in {DATA_DIR}. "
+            f"Expected files: {', '.join(raw for _, raw, _ in CRIME_FILES)}"
+        )
 
     df = pd.concat(frames, ignore_index=True)
 
@@ -549,7 +552,10 @@ def load_lead_testing() -> pd.DataFrame:
             melted["pct_elevated"] = pd.to_numeric(melted["pct_elevated"], errors="coerce")
             frames.append(melted)
     if not frames:
-        raise FileNotFoundError("No lead testing Excel files found.")
+        raise FileNotFoundError(
+            f"No lead testing Excel files found in {DATA_DIR}. "
+            "Expected: Lead_Testing_*.xlsx"
+        )
     df = pd.concat(frames, ignore_index=True)
     df["census_tract"] = df["census_tract"].astype(str).str.strip()
     return df
