@@ -1052,11 +1052,12 @@ async def query_data(request: Request, req: QueryRequest):
 
     if result.get("error"):
         err_dataset = (result.get("metadata") or {}).get("dataset", "")
+        security_status = ((result.get("metadata") or {}).get("security") or {}).get("status")
         return QueryResponse(
             success=False,
             query_id=query_id,
             error=result["error"],
-            suggestions=DATASET_SUGGESTIONS.get(err_dataset, GENERIC_SUGGESTIONS),
+            suggestions=GENERIC_SUGGESTIONS if security_status == "blocked" else DATASET_SUGGESTIONS.get(err_dataset, GENERIC_SUGGESTIONS),
             sql=result.get("sql"),
             metadata=result.get("metadata"),
             validation=result.get("validation"),
@@ -1190,7 +1191,10 @@ async def query_data(request: Request, req: QueryRequest):
             description += " (Note: neighborhood data not available for this dataset, showing by ZIP code instead.)"
 
     # Generate insights
-    insights = await asyncio.to_thread(generate_insights, df, metadata, req.question)
+    security_status = (metadata.get("security") or {}).get("status")
+    insights = None
+    if security_status != "suspicious":
+        insights = await asyncio.to_thread(generate_insights, df, metadata, req.question)
 
     # Get citations based on datasets used
     citations = []

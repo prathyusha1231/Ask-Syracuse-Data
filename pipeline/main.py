@@ -44,6 +44,7 @@ from .data_utils import (
 from llm.intent_parser import parse_intent
 from llm.openai_client import make_openai_intent_llm, make_openai_sql_llm, load_api_key
 from llm.prompt_templates import NL_TO_SQL_PROMPT
+from .security import assess_prompt_injection, SUSPICIOUS_LIMITATION_NOTE
 from .sql_builder import build_select_sql, build_join_sql
 from .sql_validator import validate_sql, SQLValidationError
 from .validation import (
@@ -243,6 +244,15 @@ def run_query(question: str) -> dict:
     t0 = time.perf_counter()
     logger.info("Query received: %s", question[:200])
 
+    security = assess_prompt_injection(question)
+    if security.status == "blocked":
+        logger.warning("Blocked prompt-injection attempt: %s", security.reason)
+        return _make_error_response(
+            security.user_message or "Request blocked by security policy.",
+            metadata={"security": security.to_metadata()},
+            limitations="Request blocked by prompt-injection guard.",
+        )
+
     # Check result cache
     cached = _get_cached_result(question)
     if cached is not None:
@@ -251,7 +261,7 @@ def run_query(question: str) -> dict:
 
     llm_fn = None
     api_key = load_api_key()
-    if api_key:
+    if api_key and security.status != "suspicious":
         try:
             llm_fn = make_openai_intent_llm()
         except Exception as exc:  # noqa: BLE001
@@ -284,6 +294,14 @@ def run_query(question: str) -> dict:
         response = _run_join_query(raw_intent)
     else:
         response = _run_single_query(raw_intent)
+
+    response.setdefault("metadata", {})
+    if security.status != "safe":
+        response["metadata"]["security"] = security.to_metadata()
+        if response.get("limitations"):
+            response["limitations"] += " " + SUSPICIOUS_LIMITATION_NOTE
+        else:
+            response["limitations"] = SUSPICIOUS_LIMITATION_NOTE
 
     # Add per-capita rates if requested
     if (response.get("result") is not None
