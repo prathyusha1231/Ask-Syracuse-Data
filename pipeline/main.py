@@ -257,7 +257,13 @@ def run_query(question: str) -> dict:
     cached = _get_cached_result(question)
     if cached is not None:
         logger.info("Cache hit for: %s", question[:100])
-        return cached
+        # Avoid mutating the cached entry in-place.
+        cached_copy = dict(cached)
+        meta = dict(cached_copy.get("metadata") or {})
+        meta["cache_hit"] = True
+        meta["security"] = security.to_metadata()
+        cached_copy["metadata"] = meta
+        return cached_copy
 
     llm_fn = None
     api_key = load_api_key()
@@ -296,8 +302,23 @@ def run_query(question: str) -> dict:
         response = _run_single_query(raw_intent)
 
     response.setdefault("metadata", {})
+    meta = dict(response.get("metadata") or {})
+    meta["cache_hit"] = False
+    meta["security"] = security.to_metadata()
+    meta["intent_parser"] = "llm" if llm_fn else "heuristic"
+    if meta.get("query_type") == "advanced_sql":
+        meta["sql_generator"] = "llm"
+    else:
+        meta["sql_generator"] = "deterministic"
+    if raw_intent.get("query_path") == "advanced_sql" and raw_intent.get("routing_reasons"):
+        meta["routing_reasons"] = raw_intent.get("routing_reasons")
+    response["metadata"] = meta
+
+    # Preserve advanced-sql routing reasons in the response intent for transparency.
+    if raw_intent.get("query_path") == "advanced_sql" and isinstance(response.get("intent"), dict):
+        response["intent"].setdefault("routing_reasons", raw_intent.get("routing_reasons") or [])
+
     if security.status != "safe":
-        response["metadata"]["security"] = security.to_metadata()
         if response.get("limitations"):
             response["limitations"] += " " + SUSPICIOUS_LIMITATION_NOTE
         else:

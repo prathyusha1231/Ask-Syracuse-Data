@@ -522,24 +522,40 @@
                 <!-- Row 4: Technical accordions (full width) -->
                 <div class="full-width space-y-2">
                     <!-- SQL Accordion -->
-                    <div class="tech-accordion">
-                        <button onclick="toggleTechAccordion('sql')" class="tech-accordion-header">
-                            <span class="flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                                SQL Query
-                            </span>
-                            <svg id="chevron-tech-sql" class="chevron-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </button>
-                        <div id="tech-sql" class="tech-accordion-content">
-                            <div class="p-5">
-                                <pre id="sqlCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
-                            </div>
-                        </div>
-                    </div>
+	                    <div class="tech-accordion">
+	                        <button onclick="toggleTechAccordion('sql')" class="tech-accordion-header">
+	                            <span class="flex items-center gap-2">
+	                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+	                                SQL Query
+	                            </span>
+	                            <svg id="chevron-tech-sql" class="chevron-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+	                        </button>
+	                        <div id="tech-sql" class="tech-accordion-content">
+	                            <div class="p-5">
+	                                <pre id="sqlCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
+	                            </div>
+	                        </div>
+	                    </div>
 
-                    <!-- Validation Accordion -->
-                    <div class="tech-accordion">
-                        <button onclick="toggleTechAccordion('validation')" class="tech-accordion-header">
+	                    <!-- Query Details Accordion -->
+	                    <div class="tech-accordion">
+	                        <button onclick="toggleTechAccordion('details')" class="tech-accordion-header">
+	                            <span class="flex items-center gap-2">
+	                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+	                                Query Details
+	                            </span>
+	                            <svg id="chevron-tech-details" class="chevron-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+	                        </button>
+	                        <div id="tech-details" class="tech-accordion-content">
+	                            <div class="p-5">
+	                                <pre id="detailsCode" class="bg-charcoal text-green-400 p-5 rounded-xl overflow-x-auto text-sm leading-relaxed"></pre>
+	                            </div>
+	                        </div>
+	                    </div>
+
+	                    <!-- Validation Accordion -->
+	                    <div class="tech-accordion">
+	                        <button onclick="toggleTechAccordion('validation')" class="tech-accordion-header">
                             <span class="flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 Validation
@@ -826,16 +842,17 @@
                                 <button onclick="setQuestion('Bike infrastructure by type')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By type</button>
                             </div>
                         </div>
-                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
-                            <div class="flex justify-between items-start mb-2">
-                                <h4 class="font-heading font-bold text-charcoal">Snow Routes</h4>
-                                <span class="text-xs text-gray-400 font-mono">3,685</span>
-                            </div>
-                            <p class="text-sm text-gray-500 mb-3">Emergency snow route road segments.</p>
-                            <div class="flex flex-wrap gap-2">
-                                <button onclick="setQuestion('How many snow routes by zip code?')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
-                            </div>
-                        </div>
+	                        <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
+	                            <div class="flex justify-between items-start mb-2">
+	                                <h4 class="font-heading font-bold text-charcoal">Snow Routes</h4>
+	                                <span class="text-xs text-gray-400 font-mono">3,685</span>
+	                            </div>
+	                            <p class="text-sm text-gray-500 mb-3">Emergency snow route road segments.</p>
+	                            <div class="flex flex-wrap gap-2">
+	                                <button onclick="setQuestion('Show snow routes map')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">Map</button>
+	                                <button onclick="setQuestion('How many snow routes by zip code?')" class="text-xs bg-purple-50 hover:bg-purple-500 hover:text-white text-purple-700 px-3 py-1 rounded-full transition font-medium cursor-pointer">By ZIP</button>
+	                            </div>
+	                        </div>
                         <div class="dataset-card bg-white rounded-xl shadow-sm p-5 border-l-4 border-purple-500">
                             <div class="flex justify-between items-start mb-2">
                                 <h4 class="font-heading font-bold text-charcoal">Tree Inventory</h4>
@@ -1448,9 +1465,11 @@
                 insightsContent.innerHTML = `<ul class="list-disc list-inside space-y-2 text-gray-700">${formatted}</ul>`;
             } else { insightsContent.classList.add('hidden'); noInsights.classList.remove('hidden'); }
 
-            document.getElementById('sqlCode').textContent = data.sql || 'No SQL generated';
-            renderValidation(data.validation, data.bias_warnings);
-            renderSources(data.citations);
+	            document.getElementById('sqlCode').textContent = data.sql || 'No SQL generated';
+	            const detailsPayload = { metadata: data.metadata || null, intent: data.intent || null };
+	            document.getElementById('detailsCode').textContent = JSON.stringify(detailsPayload, null, 2);
+	            renderValidation(data.validation, data.bias_warnings);
+	            renderSources(data.citations);
 
             // Resize Plotly charts after layout renders
             setTimeout(() => {

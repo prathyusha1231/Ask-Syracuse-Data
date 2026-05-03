@@ -197,7 +197,7 @@ DATASET_SUGGESTIONS = {
     "historical_properties": ["Historical properties by ZIP", "How many historical properties?"],
     "assessment_roll": ["Average assessed value by property class", "Assessment roll by ZIP"],
     "cityline_requests": ["Cityline requests by category", "Cityline requests by year", "Avg time to close cityline requests"],
-    "snow_routes": ["How many snow routes?", "Snow routes by ZIP"],
+    "snow_routes": ["Show snow routes map", "How many snow routes?", "Snow routes by ZIP"],
     "bike_suitability": ["Bike suitability breakdown", "How many bike segments?"],
     "bike_infrastructure": ["Bike infrastructure by type", "Total miles of bike lanes"],
     "parking_violations": ["Parking violations by type", "Avg parking fine by ZIP", "Parking violations by year"],
@@ -619,6 +619,10 @@ def generate_map_data(df: pd.DataFrame, metadata: dict, raw_df=None) -> dict | N
     dataset = metadata.get("dataset", "")
     group_by_str = metadata.get("group_by")
 
+    # Snow routes are map-first: prefer the GeoJSON line map over ZIP aggregates.
+    if dataset == "snow_routes" and SNOW_ROUTE_FEATURES:
+        return _build_snow_route_map()
+
     # Parse group_by to a list
     if group_by_str:
         group_by_list = [g.strip() for g in str(group_by_str).split(",")]
@@ -968,6 +972,7 @@ class QueryResponse(BaseModel):
     map_data: dict | None = None
     insights: str | None = None
     sql: str | None = None
+    intent: dict | None = None
     metadata: dict | None = None
     limitations: str | None = None
     validation: dict | None = None
@@ -1059,6 +1064,7 @@ async def query_data(request: Request, req: QueryRequest):
             error=result["error"],
             suggestions=GENERIC_SUGGESTIONS if security_status == "blocked" else DATASET_SUGGESTIONS.get(err_dataset, GENERIC_SUGGESTIONS),
             sql=result.get("sql"),
+            intent=result.get("intent"),
             metadata=result.get("metadata"),
             validation=result.get("validation"),
             bias_warnings=result.get("bias_warnings"),
@@ -1081,6 +1087,7 @@ async def query_data(request: Request, req: QueryRequest):
             error=error_msg,
             suggestions=suggestions,
             sql=result.get("sql"),
+            intent=result.get("intent"),
             metadata=metadata,
         )
 
@@ -1224,6 +1231,7 @@ async def query_data(request: Request, req: QueryRequest):
         map_data=map_data,
         insights=insights,
         sql=result.get("sql"),
+        intent=result.get("intent"),
         metadata=metadata,
         limitations=result.get("limitations"),
         validation=result.get("validation"),

@@ -117,27 +117,41 @@ def _is_join_query(question: str) -> bool:
 
 def _needs_advanced_sql(question: str) -> bool:
     """Detect if a question requires LLM-generated SQL (too complex for intent pipeline)."""
+    return len(_advanced_sql_reasons(question)) > 0
+
+
+def _advanced_sql_reasons(question: str) -> list[str]:
+    """Return a list of matched advanced-SQL triggers for transparency/routing."""
     q = question.lower()
 
-    advanced_patterns = [
-        "rank" in q and ("by" in q or "top" in q),
-        "percentile" in q,
-        "top" in q and "percent" in q,
-        "running total" in q,
-        "cumulative" in q,
-        "compared to average" in q or "above average" in q or "below average" in q,
-        ("rate per" in q or "per capita" in q) and "population" in q,  # only advanced if explicitly about population ratios
-        "ratio" in q,
-        "percent change" in q or "percentage change" in q,
-        "rolling" in q and ("average" in q or "mean" in q),
-        "moving average" in q,
-        "year over year" in q or "yoy" in q,
-        "standard deviation" in q or "std dev" in q,
-        "median" in q,
-        "correlation" in q,
-    ]
+    reasons: list[str] = []
 
-    return any(advanced_patterns)
+    if "rank" in q and ("by" in q or "top" in q):
+        reasons.append("ranking")
+    if "percentile" in q or ("top" in q and "percent" in q):
+        reasons.append("percentile/top-percent")
+    if "running total" in q or "cumulative" in q:
+        reasons.append("cumulative/running-total")
+    if "compared to average" in q or "above average" in q or "below average" in q:
+        reasons.append("comparison-to-average")
+    if (("rate per" in q or "per capita" in q) and "population" in q):
+        reasons.append("population-rate")
+    if "ratio" in q:
+        reasons.append("ratio")
+    if "percent change" in q or "percentage change" in q:
+        reasons.append("percent-change")
+    if ("rolling" in q and ("average" in q or "mean" in q)) or ("moving average" in q):
+        reasons.append("rolling/moving-average")
+    if "year over year" in q or "yoy" in q:
+        reasons.append("year-over-year")
+    if "standard deviation" in q or "std dev" in q:
+        reasons.append("stddev")
+    if "median" in q:
+        reasons.append("median")
+    if "correlation" in q:
+        reasons.append("correlation")
+
+    return reasons
 
 
 # =============================================================================
@@ -918,7 +932,11 @@ def parse_intent(question: str, llm: Optional[LLMCallable] = None) -> Dict[str, 
 
     # Check if this needs the advanced SQL path (only when LLM is available)
     if llm and _needs_advanced_sql(question):
-        return {"query_path": "advanced_sql", "question": question}
+        return {
+            "query_path": "advanced_sql",
+            "question": question,
+            "routing_reasons": _advanced_sql_reasons(question),
+        }
 
     intent: Optional[Dict[str, Any]] = None
 
