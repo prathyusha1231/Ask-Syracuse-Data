@@ -1,9 +1,18 @@
-"""Systematic test of all 16 datasets with multiple query types."""
-import requests
-import time
-import sys
+"""Systematic test of all 16 datasets with multiple query types.
 
-URL = "http://127.0.0.1:8000/api/query"
+This suite runs against the FastAPI app via TestClient (no separate server needed).
+If the local `data/raw/` snapshots are not present (e.g., in CI), the tests are skipped.
+"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+
+os.environ.setdefault("DISABLE_RATE_LIMITS", "1")
+if os.getenv("RUN_DATASET_API_TESTS") != "1":
+    pytest.skip("Set RUN_DATASET_API_TESTS=1 to run dataset API tests", allow_module_level=True)
 
 tests = [
     # 1. VIOLATIONS
@@ -61,65 +70,22 @@ tests = [
     ("lead_testing", "Lead testing by year", "temporal"),
 ]
 
+@pytest.fixture(scope="session")
+def client() -> TestClient:
+    data_dir = Path("data") / "raw"
+    if not data_dir.exists():
+        pytest.skip("data/raw not present; skipping dataset API tests")
 
-def run_tests():
-    results = []
-    current_dataset = None
+    from app import app
 
-    for dataset, question, qtype in tests:
-        if dataset != current_dataset:
-            current_dataset = dataset
-            print(f"\n===== {dataset.upper()} =====")
-
-        start = time.time()
-        try:
-            r = requests.post(URL, json={"question": question}, timeout=30)
-            data = r.json()
-            elapsed = int((time.time() - start) * 1000)
-            success = data.get("success", False)
-            rows = len(data.get("data", []))
-            chart_data = data.get("chart_data")
-            chart = chart_data.get("type", "none") if chart_data else "none"
-            cols = data.get("columns", [])
-
-            if success:
-                status = "PASS"
-                print(f"  PASS ({elapsed}ms) | {question}")
-                # Show first 2 data rows
-                for row in data.get("data", [])[:2]:
-                    vals = [f"{k}={v}" for k, v in row.items()]
-                    print(f"    -> {', '.join(vals)}")
-                print(f"    [{rows} rows, chart={chart}]")
-            else:
-                status = "FAIL"
-                err = data.get("error", "unknown error")
-                print(f"  FAIL ({elapsed}ms) | {question}")
-                print(f"    ERROR: {err}")
-
-            results.append((dataset, question, status, elapsed))
-        except Exception as e:
-            elapsed = int((time.time() - start) * 1000)
-            print(f"  ERROR ({elapsed}ms) | {question}")
-            print(f"    {e}")
-            results.append((dataset, question, "ERROR", elapsed))
-
-    # Summary
-    print(f"\n{'=' * 60}")
-    print("DATASET TEST SUMMARY")
-    print(f"{'=' * 60}")
-    passed = sum(1 for _, _, s, _ in results if s == "PASS")
-    failed = sum(1 for _, _, s, _ in results if s != "PASS")
-    total_time = sum(t for _, _, _, t in results)
-    print(f"Total: {len(results)} | Passed: {passed} | Failed: {failed}")
-    print(f"Total Time: {total_time}ms")
-    if failed:
-        print(f"\nFAILED TESTS:")
-        for ds, q, s, t in results:
-            if s != "PASS":
-                print(f"  [{ds}] {q} -> {s}")
-    print(f"{'=' * 60}")
-    return 0 if failed == 0 else 1
+    return TestClient(app)
 
 
-if __name__ == "__main__":
-    sys.exit(run_tests())
+@pytest.mark.parametrize("dataset,question,qtype", tests)
+def test_api_query_succeeds(client: TestClient, dataset: str, question: str, qtype: str):
+    resp = client.post("/api/query", json={"question": question})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body.get("success") is True, body.get("error") or body
+    assert isinstance(body.get("data"), list)
+    assert isinstance(body.get("columns"), list)

@@ -21,6 +21,7 @@ import uuid
 import datetime
 import pandas as pd
 from openai import OpenAI
+import os
 
 import json
 
@@ -33,6 +34,8 @@ from llm.openai_client import load_api_key
 # FASTAPI APP
 # =============================================================================
 limiter = Limiter(key_func=get_remote_address)
+if os.getenv("DISABLE_RATE_LIMITS") == "1":
+    limiter.enabled = False
 app = FastAPI(
     title="Ask Syracuse Data",
     description="Natural language interface for Syracuse Open Data",

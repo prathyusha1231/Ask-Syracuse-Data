@@ -25,22 +25,34 @@ from llm.intent_parser import _heuristic_intent
 @pytest.fixture(scope="session")
 def violations_df():
     """Load violations data once for the session."""
-    return _get_cached_df("violations", LOADERS["violations"])
+    try:
+        return _get_cached_df("violations", LOADERS["violations"])
+    except FileNotFoundError:
+        pytest.skip("data snapshots not present (missing violations CSV)")
 
 
 @pytest.fixture(scope="session")
 def crime_df():
-    return _get_cached_df("crime", LOADERS["crime"])
+    try:
+        return _get_cached_df("crime", LOADERS["crime"])
+    except FileNotFoundError:
+        pytest.skip("data snapshots not present (missing crime CSVs)")
 
 
 @pytest.fixture(scope="session")
 def parking_df():
-    return _get_cached_df("parking_violations", LOADERS["parking_violations"])
+    try:
+        return _get_cached_df("parking_violations", LOADERS["parking_violations"])
+    except FileNotFoundError:
+        pytest.skip("data snapshots not present (missing parking CSV)")
 
 
 @pytest.fixture(scope="session")
 def cityline_df():
-    return _get_cached_df("cityline_requests", LOADERS["cityline_requests"])
+    try:
+        return _get_cached_df("cityline_requests", LOADERS["cityline_requests"])
+    except FileNotFoundError:
+        pytest.skip("data snapshots not present (missing cityline CSV)")
 
 
 # =============================================================================

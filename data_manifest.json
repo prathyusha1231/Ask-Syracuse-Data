@@ -1,0 +1,204 @@
+{
+  "manifest_version": 1,
+  "created_utc": "2026-05-16T03:30:01.550087+00:00",
+  "data_root": "data/raw",
+  "file_count": 32,
+  "files": [
+    {
+      "path": "data/raw/Assessment_Roll_2026.csv",
+      "size_bytes": 8492071,
+      "modified_utc": "2026-02-07T21:59:11.669166+00:00",
+      "sha256": "d74f2b1f840418cc616b886c95d06a0007bf7912dc04a040a95ff4c13cbc27c4"
+    },
+    {
+      "path": "data/raw/bike_infrastructure.geojson",
+      "size_bytes": 110516,
+      "modified_utc": "2026-02-22T22:40:46.099637+00:00",
+      "sha256": "c2f973af20e681c96f821ec08e34363a64baa42112a1f982a70f3814d5517bfa"
+    },
+    {
+      "path": "data/raw/Bike_Infrastructure_2023.csv",
+      "size_bytes": 3896,
+      "modified_utc": "2026-02-07T21:55:05.697283+00:00",
+      "sha256": "1ca63b2919de740955f0c6e943579a1b98ce1369d84708ff581b85536624ccec"
+    },
+    {
+      "path": "data/raw/Bike_Suitability_2020.csv",
+      "size_bytes": 16945,
+      "modified_utc": "2026-02-07T21:55:06.092906+00:00",
+      "sha256": "b2d788b8561b633c57f4a711ccdc22691419f7cf77e5938984e4393e37aa24dc"
+    },
+    {
+      "path": "data/raw/Code_Violations_V2.csv",
+      "size_bytes": 51206919,
+      "modified_utc": "2025-12-15T22:43:37.653306+00:00",
+      "sha256": "8bd9e88fef585dfb5602f1c65ffd9de8cc354b6816d90b3f3043c27c57b98cae"
+    },
+    {
+      "path": "data/raw/Crime_Data_2022_(Part_1_Offenses).csv",
+      "size_bytes": 439766,
+      "modified_utc": "2025-12-15T22:45:15.279165+00:00",
+      "sha256": "6d3fd47e5a4aaf1b1c231a82585d4527ce5b788d2357857f92208a97d0d91d4e"
+    },
+    {
+      "path": "data/raw/Crime_Data_2022_enriched.csv",
+      "size_bytes": 632242,
+      "modified_utc": "2026-01-16T02:09:39.492864+00:00",
+      "sha256": "7bc944dc437a6f96d2e4d1cde9894066e6b6ad5a4e63fd6af7f8e38b97db23ef"
+    },
+    {
+      "path": "data/raw/Crime_Data_2023_(Part_1_Offenses).csv",
+      "size_bytes": 943626,
+      "modified_utc": "2026-02-08T02:03:37.173834+00:00",
+      "sha256": "de4ad66b4b95cba00e62f2695d780c87ef2d400b914d67542a88bdc08fb81b03"
+    },
+    {
+      "path": "data/raw/Crime_Data_2023_(Part_1_Offenses)_enriched.csv",
+      "size_bytes": 1016117,
+      "modified_utc": "2026-02-08T04:03:33.457828+00:00",
+      "sha256": "30a8f2599f4b0bc5f7ce2ee73644790cc1d683938b3fdb527fb253347c73d65f"
+    },
+    {
+      "path": "data/raw/Crime_Data_2023_(Part_2_Offenses).csv",
+      "size_bytes": 972229,
+      "modified_utc": "2026-02-08T02:12:01.856579+00:00",
+      "sha256": "5dbfa7fecbb713067505f5ca88218436b5609d9a4772169c85a224c9641c3ffc"
+    },
+    {
+      "path": "data/raw/Crime_Data_2023_(Part_2_Offenses)_enriched.csv",
+      "size_bytes": 1048595,
+      "modified_utc": "2026-02-08T04:03:33.643668+00:00",
+      "sha256": "f7ba8cc9f8e52bb7d5eba19d2d394a593bfbec59e54f1ce4efbd78bf1a7b5aa0"
+    },
+    {
+      "path": "data/raw/Crime_Data_2024_(Part_1_Offenses).csv",
+      "size_bytes": 1009537,
+      "modified_utc": "2026-02-08T02:03:53.715710+00:00",
+      "sha256": "510bd41b76cc923b06a95a156703d916e40f75c7968f9bb9f1a8f788d0ba6c5a"
+    },
+    {
+      "path": "data/raw/Crime_Data_2024_(Part_1_Offenses)_enriched.csv",
+      "size_bytes": 1086134,
+      "modified_utc": "2026-02-08T04:03:33.831942+00:00",
+      "sha256": "0be802da414951c6ddf39ff8a2846843c9621231522f05f5fc2560d0665f81fd"
+    },
+    {
+      "path": "data/raw/Crime_Data_2024_(Part_2_Offenses).csv",
+      "size_bytes": 972196,
+      "modified_utc": "2026-02-08T02:12:10.430376+00:00",
+      "sha256": "a9ce53fbf80e8f298915d585700583ff529aec7936779a7bd8d6cf83da99e7a3"
+    },
+    {
+      "path": "data/raw/Crime_Data_2024_(Part_2_Offenses)_enriched.csv",
+      "size_bytes": 1048945,
+      "modified_utc": "2026-02-08T04:03:34.028946+00:00",
+      "sha256": "ec449712f823d4160210f377ca39c124e5853a4ae7209c453a10e7befb3513ce"
+    },
+    {
+      "path": "data/raw/Crime_Data_2025_(Part_1_Offenses).csv",
+      "size_bytes": 4704,
+      "modified_utc": "2026-02-08T02:04:07.693694+00:00",
+      "sha256": "1cb994487c710513d4f2219fbabb63978f239e1c5ac36df3289cca7b2e4980c6"
+    },
+    {
+      "path": "data/raw/Crime_Data_2025_(Part_1_Offenses)_enriched.csv",
+      "size_bytes": 5011,
+      "modified_utc": "2026-02-08T04:03:34.068520+00:00",
+      "sha256": "80060e4d72138ce553305cdbe79db9f493205f0f21376fd20180ea98b3238f44"
+    },
+    {
+      "path": "data/raw/crime_merged.csv",
+      "size_bytes": 5556571,
+      "modified_utc": "2026-02-13T02:20:24.835989+00:00",
+      "sha256": "4943be6dc7c362ffb7a9712250bef299262153161cb07901345de6e37148e657"
+    },
+    {
+      "path": "data/raw/Emergency_Snow_Routes.csv",
+      "size_bytes": 1518475,
+      "modified_utc": "2026-02-07T21:55:40.525351+00:00",
+      "sha256": "f6ec0307b119899bb601b601764a38a45c3a374b11e8156d3295ac14953ad4f9"
+    },
+    {
+      "path": "data/raw/Historical_Properties.csv",
+      "size_bytes": 260253,
+      "modified_utc": "2026-02-07T21:55:43.202127+00:00",
+      "sha256": "cd97b493d129d5465084bac292945e60b0c4e8972126a801820e35a7d4ee6bb2"
+    },
+    {
+      "path": "data/raw/Lead_Testing_2013_2019.xlsx",
+      "size_bytes": 21633,
+      "modified_utc": "2026-02-07T22:04:21.655514+00:00",
+      "sha256": "2c318f6c0ffc61e2d12027fde2adfd5c07939fb6d80078f373aece470c8ce0ec"
+    },
+    {
+      "path": "data/raw/Lead_Testing_2020_2024.xlsx",
+      "size_bytes": 21537,
+      "modified_utc": "2026-02-07T22:04:21.814727+00:00",
+      "sha256": "4e7ffadeec1b215c038bcd897dfaf101337e6e9ecf27804c097eb0fccceaf0d0"
+    },
+    {
+      "path": "data/raw/Parking_Violations_2023.csv",
+      "size_bytes": 23055984,
+      "modified_utc": "2026-02-07T22:03:31.491596+00:00",
+      "sha256": "8f1d03bf530d9e4369d726bfb3afee0feed52fa46738128ee49df356199ec182"
+    },
+    {
+      "path": "data/raw/Permit_Requests.csv",
+      "size_bytes": 8458226,
+      "modified_utc": "2026-02-07T22:00:04.026019+00:00",
+      "sha256": "a76bd605f7a1857018ffee6ea7258872631b18722007c31d5fb16e6d278bd79e"
+    },
+    {
+      "path": "data/raw/population.csv",
+      "size_bytes": 310,
+      "modified_utc": "2026-02-25T15:29:16.076170+00:00",
+      "sha256": "2fda639f1808b6402aa8ebe73954a94ebbed8f828f4c45a949f59934955bf35e"
+    },
+    {
+      "path": "data/raw/snow_routes.geojson",
+      "size_bytes": 6737486,
+      "modified_utc": "2026-02-22T22:40:48.219836+00:00",
+      "sha256": "1e9dadd925e8aa626332892bfc87cb2bbd15d68bf7ddaa539ff4a80a781b92a2"
+    },
+    {
+      "path": "data/raw/Syracuse_Rental_Registry.csv",
+      "size_bytes": 2684359,
+      "modified_utc": "2025-12-15T22:43:53.348746+00:00",
+      "sha256": "edb445b00e4b30f38a0f15e171cae2fd922ce2dd17da3d1b30babefc1e1ed1b0"
+    },
+    {
+      "path": "data/raw/SYRCityline_Requests.csv",
+      "size_bytes": 36551678,
+      "modified_utc": "2026-02-07T22:02:33.469117+00:00",
+      "sha256": "9a67019c922cbcccd44b12059cc636f4d9062344cc14b4b067b06e2c993607d4"
+    },
+    {
+      "path": "data/raw/Trash_Pickup_2025.csv",
+      "size_bytes": 2760507,
+      "modified_utc": "2026-02-07T21:58:39.456390+00:00",
+      "sha256": "acaed41bec5b5eb7951718d6f3ae0392ad0a6cdb9a27cf18af8a624fb35b5321"
+    },
+    {
+      "path": "data/raw/Tree_Inventory.csv",
+      "size_bytes": 8750721,
+      "modified_utc": "2026-02-07T21:59:33.102396+00:00",
+      "sha256": "380b5ac71061b8e22062a2e6816152f46b3239a9311ec883d00cf222c491e518"
+    },
+    {
+      "path": "data/raw/Unfit_Properties.csv",
+      "size_bytes": 323738,
+      "modified_utc": "2026-02-07T21:55:05.372025+00:00",
+      "sha256": "c2abbaaeabbbcdf4801383aaea320feb23b72708ece8d3af20e331c56f80bef4"
+    },
+    {
+      "path": "data/raw/Vacant_Properties.csv",
+      "size_bytes": 312956,
+      "modified_utc": "2025-12-15T23:09:53.551295+00:00",
+      "sha256": "ac0c158c4bf72403298f6841235686741c8b5d320fce25f151a9d37ed31bfd19"
+    }
+  ],
+  "notes": [
+    "This manifest captures the exact filenames present under data/raw at generation time.",
+    "Use it for reproducibility (data freshness, integrity checks) when running in environments where the raw snapshots are not tracked in Git."
+  ]
+}
